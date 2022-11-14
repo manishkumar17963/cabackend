@@ -14,6 +14,7 @@ import SendBy from "../enums/sendBy";
 import Customer, { CustomerDocument } from "../models/customer";
 import Meeting from "../models/meeting";
 import Message from "../models/message.model";
+import Quotation from "../models/quotation.model";
 import {
   aggregateCustomer,
   findAndUpdateCustomer,
@@ -57,6 +58,10 @@ export function customerSocketHandler(socket: Socket) {
 
     socket.on("customer-project-detail", async (data) => {
       await customerTaskHandler(socket, data);
+    });
+
+    socket.on("customer-dashboard", async (data) => {
+      await dashboardHandler(socket, data);
     });
 
     socket.on("customer-storage", async (data) => {
@@ -144,6 +149,57 @@ async function confirmMeetingHandler(
       {}
     );
   } catch (err) {}
+}
+
+async function dashboardHandler(socket: Socket, data: any) {
+  try {
+    //@ts-ignore
+    const user = socket.user as CustomerDocument;
+    const allProjects = await aggregateProject([
+      { $match: { customerId: user._id } },
+      { $group: { _id: "$status", count: { $count: {} } } },
+    ]);
+    const projects: { [key: string]: number } = {};
+    allProjects.forEach((value) => {
+      projects[value._id] = value.count;
+    });
+
+    const invoice = await aggregateInvoice([
+      { $match: { customerId: user._id } },
+      { $group: { _id: "$paymentStatus", count: { $count: {} } } },
+    ]);
+    const invoiceObject: { [key: string]: number } = {};
+    invoice.forEach((value) => {
+      invoiceObject[value._id] = value.count;
+    });
+    const quotation = await aggregateQuotation([
+      {
+        $match: { customerId: user._id, quotationType: QuotationType.Current },
+      },
+      { $group: { _id: "$approved", count: { $count: {} } } },
+    ]);
+    const quotationObject: { [key: string]: number } = {};
+    quotation.forEach((value) => {
+      quotationObject[value._id ? "approved" : "unapproved"] = value.count;
+    });
+
+    const meetings = await Meeting.find({
+      customerId: user._id,
+      meetingStartTime: {
+        $gte: moment().startOf("day").toDate(),
+        $lt: moment().startOf("day").add(1, "day").toDate(),
+      },
+    }).sort({ meetingStartTime: 1 });
+
+    socket.emit("customer-dashboard-result", {
+      meetings,
+      quotation: quotationObject,
+      invoice: invoiceObject,
+      projects: projects,
+    });
+  } catch (err) {
+    console.log("err", err);
+  }
 }
 
 export async function initialCustomerDataHandler(socket: Socket) {

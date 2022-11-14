@@ -121,6 +121,16 @@ function customerSocketHandler(socket) {
                 }
             });
         }); });
+        socket.on("customer-dashboard", function (data) { return __awaiter(_this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, dashboardHandler(socket, data)];
+                    case 1:
+                        _a.sent();
+                        return [2 /*return*/];
+                }
+            });
+        }); });
         socket.on("customer-storage", function (data) { return __awaiter(_this, void 0, void 0, function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
@@ -277,9 +287,74 @@ function confirmMeetingHandler(socket, data) {
         });
     });
 }
+function dashboardHandler(socket, data) {
+    return __awaiter(this, void 0, void 0, function () {
+        var user, allProjects, projects_1, invoice, invoiceObject_1, quotation, quotationObject_1, meetings, err_3;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    _a.trys.push([0, 5, , 6]);
+                    user = socket.user;
+                    return [4 /*yield*/, project_Service_1.aggregateProject([
+                            { $match: { customerId: user._id } },
+                            { $group: { _id: "$status", count: { $count: {} } } },
+                        ])];
+                case 1:
+                    allProjects = _a.sent();
+                    projects_1 = {};
+                    allProjects.forEach(function (value) {
+                        projects_1[value._id] = value.count;
+                    });
+                    return [4 /*yield*/, invoice_service_1.aggregateInvoice([
+                            { $match: { customerId: user._id } },
+                            { $group: { _id: "$paymentStatus", count: { $count: {} } } },
+                        ])];
+                case 2:
+                    invoice = _a.sent();
+                    invoiceObject_1 = {};
+                    invoice.forEach(function (value) {
+                        invoiceObject_1[value._id] = value.count;
+                    });
+                    return [4 /*yield*/, quotation_Service_1.aggregateQuotation([
+                            {
+                                $match: { customerId: user._id, quotationType: quotationType_enum_1.default.Current },
+                            },
+                            { $group: { _id: "$approved", count: { $count: {} } } },
+                        ])];
+                case 3:
+                    quotation = _a.sent();
+                    quotationObject_1 = {};
+                    quotation.forEach(function (value) {
+                        quotationObject_1[value._id ? "approved" : "unapproved"] = value.count;
+                    });
+                    return [4 /*yield*/, meeting_1.default.find({
+                            customerId: user._id,
+                            meetingStartTime: {
+                                $gte: moment_1.default().startOf("day").toDate(),
+                                $lt: moment_1.default().startOf("day").add(1, "day").toDate(),
+                            },
+                        }).sort({ meetingStartTime: 1 })];
+                case 4:
+                    meetings = _a.sent();
+                    socket.emit("customer-dashboard-result", {
+                        meetings: meetings,
+                        quotation: quotationObject_1,
+                        invoice: invoiceObject_1,
+                        projects: projects_1,
+                    });
+                    return [3 /*break*/, 6];
+                case 5:
+                    err_3 = _a.sent();
+                    console.log("err", err_3);
+                    return [3 /*break*/, 6];
+                case 6: return [2 /*return*/];
+            }
+        });
+    });
+}
 function initialCustomerDataHandler(socket) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, quotations, invoices, err_3;
+        var user, quotations, invoices, err_4;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -345,8 +420,8 @@ function initialCustomerDataHandler(socket) {
                     });
                     return [3 /*break*/, 4];
                 case 3:
-                    err_3 = _a.sent();
-                    console.log("err", err_3);
+                    err_4 = _a.sent();
+                    console.log("err", err_4);
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -356,7 +431,7 @@ function initialCustomerDataHandler(socket) {
 exports.initialCustomerDataHandler = initialCustomerDataHandler;
 function customerStorageHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, uploads, shared, err_4;
+        var user, uploads, shared, err_5;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -406,7 +481,7 @@ function customerStorageHandler(socket, data) {
                     socket.emit("customer-storage-result", { uploads: uploads, shared: shared });
                     return [3 /*break*/, 5];
                 case 4:
-                    err_4 = _a.sent();
+                    err_5 = _a.sent();
                     return [3 /*break*/, 5];
                 case 5: return [2 /*return*/];
             }
@@ -416,7 +491,7 @@ function customerStorageHandler(socket, data) {
 exports.customerStorageHandler = customerStorageHandler;
 function storageProjectHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, projects, err_5;
+        var user, projects, err_6;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -434,7 +509,7 @@ function storageProjectHandler(socket, data) {
                     socket.emit("customer-storage-project-result", projects);
                     return [3 /*break*/, 4];
                 case 3:
-                    err_5 = _a.sent();
+                    err_6 = _a.sent();
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -444,7 +519,7 @@ function storageProjectHandler(socket, data) {
 exports.storageProjectHandler = storageProjectHandler;
 function addImportantHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, update, err_6;
+        var user, update, err_7;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -459,7 +534,7 @@ function addImportantHandler(socket, data) {
                     socket.user = update;
                     return [3 /*break*/, 4];
                 case 3:
-                    err_6 = _a.sent();
+                    err_7 = _a.sent();
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -470,7 +545,7 @@ exports.addImportantHandler = addImportantHandler;
 function removeImportantHandler(socket, data) {
     var _a;
     return __awaiter(this, void 0, void 0, function () {
-        var user, important, err_7;
+        var user, important, err_8;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
@@ -487,7 +562,7 @@ function removeImportantHandler(socket, data) {
                     _b.sent();
                     return [3 /*break*/, 4];
                 case 3:
-                    err_7 = _b.sent();
+                    err_8 = _b.sent();
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -497,7 +572,7 @@ function removeImportantHandler(socket, data) {
 exports.removeImportantHandler = removeImportantHandler;
 function storageImportantImageHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, data_1, err_8;
+        var user, data_1, err_9;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -523,7 +598,7 @@ function storageImportantImageHandler(socket, data) {
                     socket.emit("customer-storage-important-image-result", data_1 === null || data_1 === void 0 ? void 0 : data_1.importantFiles);
                     return [3 /*break*/, 4];
                 case 3:
-                    err_8 = _a.sent();
+                    err_9 = _a.sent();
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -533,7 +608,7 @@ function storageImportantImageHandler(socket, data) {
 exports.storageImportantImageHandler = storageImportantImageHandler;
 function storageProjectImageHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, projects, err_9;
+        var user, projects, err_10;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -564,7 +639,7 @@ function storageProjectImageHandler(socket, data) {
                     socket.emit("customer-storage-project-image-result", projects);
                     return [3 /*break*/, 4];
                 case 3:
-                    err_9 = _a.sent();
+                    err_10 = _a.sent();
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -574,7 +649,7 @@ function storageProjectImageHandler(socket, data) {
 exports.storageProjectImageHandler = storageProjectImageHandler;
 function imageDetailHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, favorite, images, err_10;
+        var user, favorite, images, err_11;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -597,7 +672,7 @@ function imageDetailHandler(socket, data) {
                     socket.emit("customer-image-detail-result", __assign(__assign({}, images[0]), { favorite: favorite ? true : false }));
                     return [3 /*break*/, 4];
                 case 3:
-                    err_10 = _a.sent();
+                    err_11 = _a.sent();
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -608,7 +683,7 @@ exports.imageDetailHandler = imageDetailHandler;
 function approveQuotationHandler(socket, data) {
     var _a;
     return __awaiter(this, void 0, void 0, function () {
-        var project, quotation, adminConnection, activeConnections, err_11;
+        var project, quotation, adminConnection, activeConnections, err_12;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
@@ -639,7 +714,7 @@ function approveQuotationHandler(socket, data) {
                     (_a = serverStore_1.getSocketServerInstance()) === null || _a === void 0 ? void 0 : _a.to(__spreadArrays(adminConnection, activeConnections)).emit("approve-quotation-result", __assign({}, data));
                     return [3 /*break*/, 6];
                 case 5:
-                    err_11 = _b.sent();
+                    err_12 = _b.sent();
                     return [3 /*break*/, 6];
                 case 6: return [2 /*return*/];
             }
