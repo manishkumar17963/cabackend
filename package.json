@@ -1,0 +1,49 @@
+{
+  "name": "cabackend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start:build": "tsc -w",
+    "start:run": "nodemon build/index.js",
+    "start": "node build/index.js",
+    "web-push": "web-push",
+    "dev": "concurrently npm:start:*"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/moment": "^2.13.0",
+    "agora-access-token": "^2.0.4",
+    "aws-sdk": "^2.935.0",
+    "axios": "^0.21.1",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^10.0.0",
+    "express": "^4.17.1",
+    "firebase-admin": "^9.10.0",
+    "ip": "^1.1.8",
+    "joi": "^17.6.3",
+    "jsonwebtoken": "^8.5.1",
+    "moment": "^2.29.1",
+    "mongoose": "^6.6.1",
+    "morgan": "^1.10.0",
+    "socket.io": "^4.5.2",
+    "uuid": "^8.3.2",
+    "web-push": "^3.4.4",
+    "yup": "^0.32.9"
+  },
+  "devDependencies": {
+    "@types/axios": "^0.14.0",
+    "@types/bcryptjs": "^2.4.2",
+    "@types/express": "^4.17.12",
+    "@types/ip": "^1.1.0",
+    "@types/jsonwebtoken": "^8.5.2",
+    "@types/morgan": "^1.9.3",
+    "@types/node": "^15.14.4",
+    "@types/request": "^2.48.6",
+    "@types/uuid": "^8.3.0",
+    "@types/web-push": "^3.3.1",
+    "@types/yup": "^0.29.11",
+    "concurrently": "^6.2.0"
+  }
+}

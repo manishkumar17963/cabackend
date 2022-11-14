@@ -1,0 +1,25 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+var express_1 = __importDefault(require("express"));
+var customer_1 = require("../controllers/customer");
+var payment_1 = require("../controllers/payment");
+var auth_1 = __importDefault(require("../middleware/auth"));
+var validateRequest_1 = __importDefault(require("../middleware/validateRequest"));
+var customer_2 = __importDefault(require("../models/customer"));
+var admin_1 = require("../schema/admin");
+var common_1 = require("../schema/common");
+var CustomerRouter = express_1.default.Router();
+CustomerRouter.post("/signup", validateRequest_1.default(common_1.createCustomerSchema), customer_1.createCustomerHandler);
+CustomerRouter.post("/signup/verify", validateRequest_1.default(common_1.verifyPersonSchema), customer_1.verifyCustomerHandler);
+CustomerRouter.post("/invoice/payment/:invoiceId", auth_1.default(customer_2.default), payment_1.invoicePaymentHandler);
+CustomerRouter.post("/callback/invoice/payment/:invoiceId/:customerId", payment_1.invoicePaymentCallbackHandler);
+CustomerRouter.post("/login/web", validateRequest_1.default(common_1.webLoginSchema), customer_1.loginCustomerHandler);
+CustomerRouter.post("/logout", customer_1.logoutCustomerHandler);
+CustomerRouter.post("/create/project", [auth_1.default(customer_2.default)], customer_1.createProjectForCustomerHandler);
+CustomerRouter.post("/add/meeting", [validateRequest_1.default(admin_1.requestMeetingSchema), auth_1.default(customer_2.default)], customer_1.requestMeetingHandler);
+CustomerRouter.get("/status", auth_1.default(customer_2.default), customer_1.getStatusHandler);
+CustomerRouter.post("/join/meeting", [auth_1.default(customer_2.default)], customer_1.customerConnectMeetingHandler);
+exports.default = CustomerRouter;

@@ -1,0 +1,22 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+var express_1 = __importDefault(require("express"));
+var sendPresignedUrl_1 = require("../controllers/sendPresignedUrl");
+var folderType_1 = __importDefault(require("../enums/folderType"));
+var auth_1 = __importDefault(require("../middleware/auth"));
+var admin_1 = __importDefault(require("../models/admin"));
+var customer_1 = __importDefault(require("../models/customer"));
+var employee_1 = __importDefault(require("../models/employee"));
+var UrlRouter = express_1.default.Router();
+UrlRouter.put("/customer/presigned/url", auth_1.default(customer_1.default), sendPresignedUrl_1.sendPresignedUrlHandler(folderType_1.default.Customer));
+UrlRouter.put("/admin/presigned/url", auth_1.default(admin_1.default), sendPresignedUrl_1.sendPresignedUrlHandler(folderType_1.default.Admin));
+UrlRouter.put("/customer/message/presigned/url", auth_1.default(customer_1.default), sendPresignedUrl_1.sendPresignedUrlHandler(folderType_1.default.Customer, false, true));
+UrlRouter.put("/employee/message/presigned/url", auth_1.default(employee_1.default), sendPresignedUrl_1.sendPresignedUrlHandler(folderType_1.default.Employee, false, true));
+UrlRouter.put("/admin/message/presigned/url", auth_1.default(admin_1.default), sendPresignedUrl_1.sendPresignedUrlHandler(folderType_1.default.Admin, false, true));
+UrlRouter.put("/admin/profile/presigned/url", sendPresignedUrl_1.sendPresignedUrlHandler(folderType_1.default.Admin, true));
+UrlRouter.put("/customer/profile/presigned/url", sendPresignedUrl_1.sendPresignedUrlHandler(folderType_1.default.Customer, true));
+UrlRouter.put("/employee/presigned/url", auth_1.default(employee_1.default), sendPresignedUrl_1.sendPresignedUrlHandler(folderType_1.default.Employee));
+exports.default = UrlRouter;
