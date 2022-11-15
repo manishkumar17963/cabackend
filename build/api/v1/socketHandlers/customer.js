@@ -66,6 +66,7 @@ var meetingStatus_1 = __importDefault(require("../enums/meetingStatus"));
 var paymentStatus_1 = __importDefault(require("../enums/paymentStatus"));
 var quotationType_enum_1 = __importDefault(require("../enums/quotationType.enum"));
 var sendBy_1 = __importDefault(require("../enums/sendBy"));
+var taskStatus_1 = __importDefault(require("../enums/taskStatus"));
 var customer_1 = __importDefault(require("../models/customer"));
 var meeting_1 = __importDefault(require("../models/meeting"));
 var message_model_1 = __importDefault(require("../models/message.model"));
@@ -75,6 +76,7 @@ var meeting_2 = require("../services/meeting");
 var message_Service_1 = require("../services/message.Service");
 var project_Service_1 = require("../services/project.Service");
 var quotation_Service_1 = require("../services/quotation.Service");
+var task_1 = require("../services/task");
 function customerSocketHandler(socket) {
     var _this = this;
     //@ts-ignore
@@ -819,13 +821,31 @@ function customerProjectHandler(socket, data) {
 }
 function customerTaskHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var tasks, user, projectDetail;
+        var tasks, user, tasks_1, taskStatus_2, projectDetail;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
                     tasks = [];
                     user = socket.user;
-                    if (!mongoose_1.default.isValidObjectId(data.projectId)) return [3 /*break*/, 2];
+                    if (!mongoose_1.default.isValidObjectId(data.projectId)) return [3 /*break*/, 3];
+                    return [4 /*yield*/, task_1.aggregateTask([
+                            { $match: { projectId: new mongoose_1.default.Types.ObjectId(data.projectId) } },
+                            { $group: { _id: "$status", count: { $count: {} } } },
+                        ])];
+                case 1:
+                    tasks_1 = _a.sent();
+                    taskStatus_2 = { pending: 0, completed: 0 };
+                    tasks_1.forEach(function (value) {
+                        if (value._id != taskStatus_1.default.Declined) {
+                            if (value._id == taskStatus_1.default.Completed) {
+                                taskStatus_2["completed"] += value.count;
+                            }
+                            else {
+                                taskStatus_2["pending"] += value.count;
+                            }
+                        }
+                    });
+                    console.log("tasks", tasks_1, taskStatus_2);
                     return [4 /*yield*/, project_Service_1.aggregateProject([
                             { $match: { _id: new mongoose_1.default.Types.ObjectId(data.projectId) } },
                             {
@@ -884,11 +904,11 @@ function customerTaskHandler(socket, data) {
                             },
                             { $project: { assignedEmployees: 0 } },
                         ])];
-                case 1:
-                    projectDetail = _a.sent();
-                    socket.emit("customer-project-detail-result", projectDetail[0]);
-                    _a.label = 2;
                 case 2:
+                    projectDetail = _a.sent();
+                    socket.emit("customer-project-detail-result", __assign(__assign({}, projectDetail[0]), { taskStatus: taskStatus_2 }));
+                    _a.label = 3;
+                case 3:
                     socket.emit("customer-task-result", { projectId: data.projectId, tasks: tasks });
                     return [2 /*return*/];
             }

@@ -11,6 +11,7 @@ import MeetingStatus from "../enums/meetingStatus";
 import PaymentStatus from "../enums/paymentStatus";
 import QuotationType from "../enums/quotationType.enum";
 import SendBy from "../enums/sendBy";
+import TaskStatus from "../enums/taskStatus";
 import Customer, { CustomerDocument } from "../models/customer";
 import Meeting from "../models/meeting";
 import Message from "../models/message.model";
@@ -556,6 +557,22 @@ async function customerTaskHandler(
   //@ts-ignore
   const user = socket.user as CustomerDocument;
   if (mongoose.isValidObjectId(data.projectId)) {
+    const tasks = await aggregateTask([
+      { $match: { projectId: new mongoose.Types.ObjectId(data.projectId) } },
+      { $group: { _id: "$status", count: { $count: {} } } },
+    ]);
+
+    const taskStatus: { [key: string]: number } = { pending: 0, completed: 0 };
+    tasks.forEach((value: { _id: string; count: number }) => {
+      if (value._id != TaskStatus.Declined) {
+        if (value._id == TaskStatus.Completed) {
+          taskStatus["completed"] += value.count;
+        } else {
+          taskStatus["pending"] += value.count;
+        }
+      }
+    });
+    console.log("tasks", tasks, taskStatus);
     const projectDetail = await aggregateProject([
       { $match: { _id: new mongoose.Types.ObjectId(data.projectId) } },
       {
@@ -616,7 +633,10 @@ async function customerTaskHandler(
       { $project: { assignedEmployees: 0 } },
     ]);
 
-    socket.emit("customer-project-detail-result", projectDetail[0]);
+    socket.emit("customer-project-detail-result", {
+      ...projectDetail[0],
+      taskStatus,
+    });
   }
 
   socket.emit("customer-task-result", { projectId: data.projectId, tasks });
