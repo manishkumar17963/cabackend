@@ -10,7 +10,7 @@ import HolidayType from "../enums/holidayType";
 import Schdule from "../interfaces/schdule";
 import SendBy from "../enums/sendBy";
 
-export interface SickLeaveCategoryWithout {
+export interface SickLeaveCategoryWithout extends mongoose.Document {
   name: string;
   type: HolidayType;
   value: number;

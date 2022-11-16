@@ -49,7 +49,11 @@ UrlRouter.put(
 
   sendPresignedUrlHandler(FolderType.Customer, true)
 );
+UrlRouter.put(
+  "/employee/profile/presigned/url",
 
+  sendPresignedUrlHandler(FolderType.Employee, true)
+);
 UrlRouter.put(
   "/employee/presigned/url",
   authRequired(Employee),

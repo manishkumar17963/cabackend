@@ -1,3 +1,4 @@
+import moment from "moment";
 import mongoose from "mongoose";
 import { Socket } from "socket.io";
 import {
@@ -6,6 +7,7 @@ import {
 } from "../../../socket/serverStore";
 import AttendanceType from "../enums/attendanceType";
 import ConversationType from "../enums/conversationType";
+import MeetingStatus from "../enums/meetingStatus";
 import SendBy from "../enums/sendBy";
 import TaskStatus from "../enums/taskStatus";
 import { socketError } from "../helpers/checkErrors";
@@ -18,8 +20,17 @@ import { aggregateAdmin } from "../services/admin";
 import { findAttendance } from "../services/attendance";
 import { aggregateBranch } from "../services/branch.service";
 import { aggregateCustomer } from "../services/customer";
-import { aggregateEmployee, findAndUpdateEmployee } from "../services/employee";
-import { aggregateMeeting, findMeeting } from "../services/meeting";
+import {
+  aggregateEmployee,
+  findAndUpdateEmployee,
+  findEmployee,
+} from "../services/employee";
+import { aggregateHoliday } from "../services/holiday";
+import {
+  aggregateMeeting,
+  findAndUpdateMeeting,
+  findMeeting,
+} from "../services/meeting";
 import { aggregateMessage } from "../services/message.Service";
 import { aggregateProject, findProject } from "../services/project.Service";
 import { aggregateTask } from "../services/task";
@@ -28,8 +39,15 @@ import { aggregateTemplate } from "../services/template.service";
 export function employeeSocketHandler(socket: Socket) {
   //@ts-ignore
   if (socket.type == SendBy.Employee) {
+    socket.on("sick-leave", async (data) => {
+      await sickLeaveHandler(socket, data);
+    });
     socket.on("employee-project", async (data) => {
       await employeeProjectHandler(socket, data);
+    });
+
+    socket.on("confirm-meeting", async (data) => {
+      await confirmMeetingHandler(socket, data);
     });
 
     socket.on("employee-task-detail", async (data) => {
@@ -94,7 +112,156 @@ export function employeeSocketHandler(socket: Socket) {
     socket.on("employee-image-detail", async (data) => {
       await imageDetailHandler(socket, data);
     });
+
+    socket.on("employee-holiday", async (data) => {
+      await employeeHolidayHandler(socket, data);
+    });
+
+    socket.on("employee-date-meeting", async (data) => {
+      await employeeMeetingDateHandler(socket, data);
+    });
   }
+}
+
+async function confirmMeetingHandler(
+  socket: Socket,
+  data: { meetingId: string }
+) {
+  try {
+    //@ts-ignore
+    const user = socket.user! as EmployeeDocument;
+
+    await findAndUpdateMeeting(
+      {
+        _id: data.meetingId,
+        employeeId: user._id,
+        meetingStatus: { $ne: MeetingStatus.Completed },
+      },
+      { $set: { employeeConfirmed: true } },
+      {}
+    );
+  } catch (err) {}
+}
+
+async function employeeMeetingDateHandler(
+  socket: Socket,
+  data: { date: string }
+) {
+  try {
+    //@ts-ignore
+    const user = socket.user as EmployeeDocument;
+    const projects = await aggregateProject([
+      { $match: { "assignedEmployees.employeeId": user._id } },
+      {
+        $addFields: {
+          primary: {
+            $cond: {
+              if: {
+                $eq: [user._id, "$primaryEmployee"],
+              },
+              then: true,
+              else: false,
+            },
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "meetings",
+          let: { projectId: "$_id", primary: "$primary" },
+          pipeline: [
+            {
+              $match: {
+                meetingStartTime: {
+                  $gte: moment(data.date).toDate(),
+                  $lt: moment(data.date).add(1, "day").toDate(),
+                },
+                $expr: {
+                  $or: [
+                    { $eq: ["$employeeId", user._id] },
+                    {
+                      $and: [
+                        { $eq: ["$$projectId", "$projectId"] },
+                        { $eq: ["$$primary", true] },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+            { $addFields: { primary: "$$primary" } },
+            {
+              $lookup: {
+                from: "employees",
+                let: { employeeId: "$employeeId" },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: {
+                        $eq: ["$_id", "$$employeeId"],
+                      },
+                    },
+                  },
+                  {
+                    $project: {
+                      _id: 1,
+                      username: 1,
+                      profileUri: 1,
+                      number: 1,
+                    },
+                  },
+                ],
+                as: "employee",
+              },
+            },
+            {
+              $lookup: {
+                from: "customers",
+                let: { customerId: "$customerId" },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: {
+                        $eq: ["$_id", "$$customerId"],
+                      },
+                    },
+                  },
+                  {
+                    $project: {
+                      _id: 1,
+                      username: 1,
+                      companyName: 1,
+                      number: 1,
+                      profileUri: 1,
+                    },
+                  },
+                ],
+                as: "customer",
+              },
+            },
+            { $sort: { createdAt: -1 } },
+          ],
+          as: "meetings",
+        },
+      },
+    ]);
+
+    console.log(projects);
+    const meetings: any[] = [];
+    projects.forEach((value) => {
+      meetings.push(...value.meetings);
+    });
+    console.log("meetings", meetings);
+    socket.emit("employee-date-meeting-result", meetings);
+  } catch (err) {
+    console.log("error", err);
+  }
+}
+
+async function employeeHolidayHandler(socket: Socket, data: any) {
+  const meetings = await aggregateHoliday([{ $sort: { createdAt: -1 } }]);
+  console.log("meetings", meetings, data);
+  socket.emit("employee-holiday-result", meetings);
 }
 
 export async function assignEmployeeMeeting(
@@ -122,6 +289,31 @@ export async function assignEmployeeMeeting(
       await meeting.save();
     }
   } catch (err) {}
+}
+
+export async function sickLeaveHandler(socket: Socket, data: any) {
+  try {
+    //@ts-ignore
+    const user = socket.user! as EmployeeDocument;
+    const employee = await findEmployee({ _id: user._id });
+    if (employee) {
+      socket.emit("sick-leave-result", {
+        sickLeave: employee.sickLeave.map((value) => {
+          //@ts-ignore
+          return { ...value.toJSON(), types: Object.fromEntries(value.types) };
+        }),
+        events: employee.holidayRequest.map((value) => ({
+          //@ts-ignore
+          ...value.toJSON(),
+          title: value.reason,
+          start: value.date,
+          end: moment(value.date).add(1, "day"),
+        })),
+      });
+    }
+  } catch (err) {
+    console.log("err", err);
+  }
 }
 
 export async function employeeSrisudhaHandler(socket: Socket, data: any) {

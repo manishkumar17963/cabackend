@@ -20,9 +20,10 @@ import {
   ConversationDocument,
   ConversationInput,
 } from "../models/conversation.model";
-import { EmployeeDocument } from "../models/employee";
+import { EmployeeDocument, SickLeaveCategoryWithout } from "../models/employee";
 
 import { InvoiceDocument } from "../models/invoice.model";
+import Meeting from "../models/meeting";
 import Message from "../models/message.model";
 import { ProjectDocument } from "../models/project.model";
 import { QuotationDocument } from "../models/quotation.model";
@@ -31,7 +32,8 @@ import { TemplateDocument } from "../models/template.model";
 import { aggregateAdmin, findAndUpdateAdmin } from "../services/admin";
 import { aggregateBranch } from "../services/branch.service";
 import { aggregateCustomer } from "../services/customer";
-import { aggregateEmployee } from "../services/employee";
+import { aggregateEmployee, findEmployee } from "../services/employee";
+import { aggregateHoliday } from "../services/holiday";
 import { aggregateInvoice } from "../services/invoice.service";
 import { aggregateMeeting, findMeeting } from "../services/meeting";
 import { aggregateMessage } from "../services/message.Service";
@@ -41,6 +43,7 @@ import {
   findProject,
 } from "../services/project.Service";
 import { aggregateQuotation } from "../services/quotation.Service";
+import { createSetting, findSetting } from "../services/setting.service";
 import { aggregateTask, findTask } from "../services/task";
 import { aggregateTemplate } from "../services/template.service";
 
@@ -49,6 +52,10 @@ export function adminSocketHandler(socket: Socket) {
   if (socket.type == SendBy.Admin) {
     socket.on("admin-project", async (data) => {
       await adminProjectHandler(socket, data);
+    });
+
+    socket.on("admin-dashboard", async (data) => {
+      await dashboardHandler(socket, data);
     });
 
     socket.on("admin-project-meeting", async (data) => {
@@ -65,6 +72,10 @@ export function adminSocketHandler(socket: Socket) {
 
     socket.on("admin-employee", async (data) => {
       await adminEmployeeHandler(socket);
+    });
+
+    socket.on("admin-employee-detail", async (data) => {
+      await employeeDetailHandler(socket, data);
     });
 
     socket.on("admin-customer", async (data) => {
@@ -91,6 +102,10 @@ export function adminSocketHandler(socket: Socket) {
       await assignEmployeeMeeting(socket, data);
     });
 
+    socket.on("admin-save-setting", async (data) => {
+      await adminSaveSettingHandler(socket, data);
+    });
+
     socket.on("admin-storage", async (data) => {
       console.log("storage emit ");
       await employeeStorageHandler(socket, data);
@@ -113,9 +128,234 @@ export function adminSocketHandler(socket: Socket) {
     socket.on("admin-remove-important-image", async (data) => {
       await removeImportantHandler(socket, data);
     });
+
+    socket.on("admin-date-meeting", async (data) => {
+      await adminMeetingDateHandler(socket, data);
+    });
+    socket.on("admin-setting", async (data) => {
+      await adminGetSettingHandler(socket, data);
+    });
+    socket.on("sick-leave", async (data) => {
+      await sickLeaveHandler(socket, data);
+    });
     socket.on("admin-image-detail", async (data) => {
       await imageDetailHandler(socket, data);
     });
+
+    socket.on("admin-holiday", async (data) => {
+      await adminHolidayHandler(socket, data);
+    });
+  }
+}
+
+export async function sickLeaveHandler(
+  socket: Socket,
+  data: { employeeId: string }
+) {
+  try {
+    //@ts-ignore
+
+    const employee = await findEmployee({ _id: data.employeeId });
+    if (employee) {
+      socket.emit("sick-leave-result", {
+        sickLeave: employee.sickLeave.map((value) => {
+          //@ts-ignore
+          return { ...value.toJSON(), types: Object.fromEntries(value.types) };
+        }),
+        events: employee.holidayRequest.map((value) => ({
+          //@ts-ignore
+          ...value.toJSON(),
+          title: value.reason,
+          start: value.date,
+          end: moment(value.date).add(1, "day"),
+        })),
+      });
+    }
+  } catch (err) {
+    console.log("err", err);
+  }
+}
+
+async function adminSaveSettingHandler(
+  socket: Socket,
+  data: {
+    types: { [key: string]: SickLeaveCategoryWithout };
+    startTime: string;
+    endTime: string;
+  }
+) {
+  try {
+    //@ts-ignore
+    const user = socket.user as AdminDocument;
+    console.log("data", data);
+    let setting = await findSetting({});
+    if (!setting) {
+      setting = await createSetting(data);
+    } else {
+      setting.types = data.types;
+      await setting.save();
+    }
+    console.log("setting", setting);
+  } catch (err) {
+    console.log("error", err);
+  }
+}
+
+async function adminGetSettingHandler(
+  socket: Socket,
+  data: {
+    types: { [key: string]: SickLeaveCategoryWithout };
+    startTime: string;
+    endTime: string;
+  }
+) {
+  try {
+    //@ts-ignore
+    const user = socket.user as AdminDocument;
+    console.log("data", data);
+    let setting = await findSetting({});
+
+    socket.emit("admin-setting-result", setting ?? {});
+  } catch (err) {
+    console.log("error", err);
+  }
+}
+
+async function adminMeetingDateHandler(
+  socket: Socket,
+  data: { date: string; employeeId?: string }
+) {
+  try {
+    //@ts-ignore
+    const user = socket.user as AdminDocument;
+    console.log("date", data, moment(data.date).startOf("day").toDate());
+    const match: { [key: string]: string } = {};
+    if (data.employeeId) {
+      match["employeeId"] = data.employeeId;
+    }
+    const meetings = await aggregateMeeting([
+      {
+        $match: {
+          ...match,
+          meetingStartTime: {
+            $gte: moment(data.date).toDate(),
+            $lt: moment(data.date).add(1, "day").toDate(),
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "employees",
+          let: { employeeId: "$employeeId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$_id", "$$employeeId"],
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 1,
+                username: 1,
+                profileUri: 1,
+                number: 1,
+              },
+            },
+          ],
+          as: "employee",
+        },
+      },
+      {
+        $lookup: {
+          from: "customers",
+          let: { customerId: "$customerId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$_id", "$$customerId"],
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 1,
+                username: 1,
+                companyName: 1,
+                number: 1,
+                profileUri: 1,
+              },
+            },
+          ],
+          as: "customer",
+        },
+      },
+      { $sort: { createdAt: -1 } },
+    ]);
+
+    socket.emit("admin-date-meeting-result", meetings);
+  } catch (err) {}
+}
+
+async function employeeDetailHandler(
+  socket: Socket,
+  data: { employeeId: string }
+) {
+  try {
+    const employee = await findEmployee({ _id: data.employeeId });
+    socket.emit("admin-employee-detail-result", employee);
+  } catch (err) {
+    console.log("error", err);
+  }
+}
+
+async function dashboardHandler(socket: Socket, data: any) {
+  try {
+    //@ts-ignore
+    const user = socket.user as CustomerDocument;
+    const allProjects = await aggregateProject([
+      { $group: { _id: "$status", count: { $count: {} } } },
+    ]);
+    const projects: { [key: string]: number } = {};
+    allProjects.forEach((value) => {
+      projects[value._id] = value.count;
+    });
+
+    const invoice = await aggregateInvoice([
+      { $group: { _id: "$paymentStatus", count: { $count: {} } } },
+    ]);
+    const invoiceObject: { [key: string]: number } = {};
+    invoice.forEach((value) => {
+      invoiceObject[value._id] = value.count;
+    });
+    const quotation = await aggregateQuotation([
+      {
+        $match: { quotationType: QuotationType.Current },
+      },
+      { $group: { _id: "$approved", count: { $count: {} } } },
+    ]);
+    const quotationObject: { [key: string]: number } = {};
+    quotation.forEach((value) => {
+      quotationObject[value._id ? "approved" : "unapproved"] = value.count;
+    });
+
+    const meetings = await Meeting.find({
+      meetingStartTime: {
+        $gte: moment().startOf("day").toDate(),
+        $lt: moment().startOf("day").add(1, "day").toDate(),
+      },
+    }).sort({ meetingStartTime: 1 });
+
+    socket.emit("admin-dashboard-result", {
+      meetings,
+      quotation: quotationObject,
+      invoice: invoiceObject,
+      projects: projects,
+    });
+  } catch (err) {
+    console.log("err", err);
   }
 }
 
@@ -137,12 +377,10 @@ export async function assignEmployeeMeeting(
     if (!project) {
       return;
     }
-    if (project.primaryEmployee != user._id) {
-      return;
-    } else {
-      meeting.employeeId = data.employeeId;
-      await meeting.save();
-    }
+    console.log("data", data);
+
+    meeting.employeeId = data.employeeId;
+    await meeting.save();
   } catch (err) {}
 }
 
@@ -1115,9 +1353,64 @@ export async function updateSocketProjectPrimaryEmployee(
   });
 }
 
+async function adminHolidayHandler(socket: Socket, data: any) {
+  const meetings = await aggregateHoliday([{ $sort: { createdAt: -1 } }]);
+  console.log("meetings", meetings, data);
+  socket.emit("admin-holiday-result", meetings);
+}
+
 async function adminMeetingHandler(socket: Socket, data: any) {
   const meetings = await aggregateMeeting([
     { $match: { projectId: new mongoose.Types.ObjectId(data.projectId) } },
+    {
+      $lookup: {
+        from: "employees",
+        let: { employeeId: "$employeeId" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $eq: ["$_id", "$$employeeId"],
+              },
+            },
+          },
+          {
+            $project: {
+              _id: 1,
+              username: 1,
+              profileUri: 1,
+              number: 1,
+            },
+          },
+        ],
+        as: "employee",
+      },
+    },
+    {
+      $lookup: {
+        from: "customers",
+        let: { customerId: "$customerId" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $eq: ["$_id", "$$customerId"],
+              },
+            },
+          },
+          {
+            $project: {
+              _id: 1,
+              username: 1,
+              companyName: 1,
+              number: 1,
+              profileUri: 1,
+            },
+          },
+        ],
+        as: "customer",
+      },
+    },
     { $sort: { createdAt: -1 } },
   ]);
   console.log("meetings", meetings, data);

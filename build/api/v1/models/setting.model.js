@@ -17,8 +17,8 @@ var SickLeaveCategorySchema = new mongoose_1.default.Schema({
 }, { _id: false });
 var SettingSchema = new mongoose_1.default.Schema({
     types: { type: Map, of: SickLeaveCategorySchema },
-    startTime: { type: Number, required: true },
-    endTime: { type: Number, required: true },
+    startTime: { type: String, required: true },
+    endTime: { type: String, required: true },
 }, {
     timestamps: true,
 });

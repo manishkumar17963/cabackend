@@ -5,8 +5,8 @@ import { SickLeaveCategoryWithout } from "./employee";
 
 export interface SettingDocument extends mongoose.Document {
   types: { [key: string]: SickLeaveCategoryWithout };
-  startTime: number;
-  endTime: number;
+  startTime: string;
+  endTime: string;
 }
 
 const SickLeaveCategorySchema = new mongoose.Schema(
@@ -25,8 +25,8 @@ const SickLeaveCategorySchema = new mongoose.Schema(
 var SettingSchema = new mongoose.Schema(
   {
     types: { type: Map, of: SickLeaveCategorySchema },
-    startTime: { type: Number, required: true },
-    endTime: { type: Number, required: true },
+    startTime: { type: String, required: true },
+    endTime: { type: String, required: true },
   },
   {
     timestamps: true,

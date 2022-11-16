@@ -1,15 +1,20 @@
 import express from "express";
+import { updateStatusHandler } from "../controllers/admin";
 import {
   addCommentHandler,
+  addHolidayRequestHandler,
   assignTaskToEmployeeHandler,
+  completeProjectHandler,
   createEmployeeHandler,
   createTaskCustomerHandler,
+  declinedProjectHandler,
   employeeConnectMeetingHandler,
   forgotPasswordHandler,
   getStatusHandler,
   loginEmployeeHandler,
   logoutEmployeeHandler,
   requestMeetingHandler,
+  updateProjectHandler,
   verifyEmployeeHandler,
   verifyForgotOtpHandler,
 } from "../controllers/employee";
@@ -22,6 +27,7 @@ import {
   assignTaskToEmployeeSchema,
   createTaskSchema,
   requestMeetingSchema,
+  updateProjectSchema,
 } from "../schema/admin";
 import {
   createEmployeeSchema,
@@ -45,6 +51,18 @@ EmployeeRouter.post(
   verifyEmployeeHandler
 );
 
+EmployeeRouter.put(
+  "/update/project",
+  [validate(updateProjectSchema), authRequired(Employee)],
+  updateProjectHandler
+);
+
+EmployeeRouter.post(
+  "/add/leave",
+  authRequired(Employee),
+  addHolidayRequestHandler
+);
+
 EmployeeRouter.post("/forgot/number", forgotPasswordHandler);
 EmployeeRouter.post("/forgot/verify/number", verifyForgotOtpHandler);
 EmployeeRouter.post(
@@ -63,6 +81,24 @@ EmployeeRouter.post(
   "/create/task",
   [validate(createTaskSchema), authRequired(Employee)],
   createTaskCustomerHandler
+);
+
+EmployeeRouter.put(
+  "/complete/project",
+  [authRequired(Employee)],
+  completeProjectHandler
+);
+
+EmployeeRouter.put(
+  "/decline/project",
+  [authRequired(Employee)],
+  declinedProjectHandler
+);
+
+EmployeeRouter.put(
+  "/update/project/status",
+  [authRequired(Employee)],
+  updateStatusHandler
 );
 
 EmployeeRouter.put(

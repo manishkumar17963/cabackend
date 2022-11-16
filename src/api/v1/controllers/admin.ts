@@ -1794,33 +1794,40 @@ export async function addHolidayHandler(req: Request, res: Response) {
       fromDateString,
       toDateString,
       description,
-    }: { fromDateString: string; toDateString: string; description?: string } =
-      req.body;
-    let toDate = moment(toDateString);
-    let fromDate = moment(fromDateString);
+      title,
+    }: {
+      fromDateString: string;
+      toDateString: string;
+      description?: string;
+      title?: string;
+    } = req.body;
+    console.log("body", req.body);
+    let end = moment(toDateString);
+    let start = moment(fromDateString);
     const admin = req.user! as AdminDocument;
-    if (fromDate.isBefore(moment())) {
+    if (start.isBefore(moment())) {
       throw new CustomError("Bad Request", 404, "Day Already Passed");
     }
+    console.log("before filter", start.toDate(), end.toDate());
     const holiday = await findHoliday(
       {
         $or: [
           {
             $and: [
-              { fromDate: { $lt: toDate } },
-              { fromDate: { $gt: fromDate } },
+              { start: { $lt: end.toDate() } },
+              { start: { $gt: start.toDate() } },
             ],
           },
           {
             $and: [
-              { fromDate: { $lt: fromDate } },
-              { toDate: { $lt: toDate } },
+              { start: { $gt: start.toDate() } },
+              { end: { $lt: end.toDate() } },
             ],
           },
           {
             $and: [
-              { toDate: { $lt: toDate } },
-              { fromDate: { $gt: fromDate } },
+              { end: { $lt: end.toDate() } },
+              { end: { $gt: start.toDate() } },
             ],
           },
         ],
@@ -1833,26 +1840,29 @@ export async function addHolidayHandler(req: Request, res: Response) {
       throw new CustomError(
         "Bad Request",
         400,
-        "Some Holiday date already added"
+        "Same Holiday date already added"
       );
     }
-    const array = new Array(toDate.diff(fromDate, "days"));
-    await Attendance.insertMany(
-      array.map((value, index) => ({
-        date: fromDate.add(index, "day"),
-        open: false,
-        attendanceType: AttendanceType.Holiday,
-        attendance: [],
-      }))
-    );
+    console.log("afterfilter", start.toDate(), end.toDate());
+    const array = Array.apply(0, Array(end.diff(start, "days")));
+    const newMap = array.map((value, index) => ({
+      date: start.clone().startOf("day").add(index, "day").toDate(),
+      open: false,
+      attendanceType: AttendanceType.Holiday,
+      attendance: [],
+    }));
+
+    await Attendance.insertMany(newMap);
+    console.log("staa", start.toDate(), end.toDate());
     const newHoliday = await createHoliday({
-      fromDate,
-      toDate,
+      start: start.toDate(),
+      end: end.toDate(),
       description,
+      title: title,
       adminId: admin._id,
     });
     await updateAllEmployee(
-      { "holidayRequest.date": { $gte: fromDate, $lte: toDate } },
+      { "holidayRequest.date": { $gte: start, $lte: end } },
       { $set: { "holidayRequest.$[].holidayAdded": true } },
       { session }
     );
@@ -1872,7 +1882,7 @@ export async function removeHolidayHandler(req: Request, res: Response) {
     const admin = req.user! as AdminDocument;
 
     const holiday = await findAndDeleteHoliday(
-      { _id: req.params.holidayId },
+      { _id: req.body.holidayId },
 
       { session }
     );
@@ -1880,7 +1890,7 @@ export async function removeHolidayHandler(req: Request, res: Response) {
     if (!holiday) {
       throw new CustomError("Bad Request", 404, "No such holiday found");
     }
-    if (moment(holiday.fromDate).isBefore(moment())) {
+    if (moment(holiday.start).isBefore(moment())) {
       throw new CustomError(
         "Bad Request",
         404,
@@ -1889,17 +1899,19 @@ export async function removeHolidayHandler(req: Request, res: Response) {
     }
     await updateAllEmployee(
       {
-        "holidayRequest.date": { $gte: holiday.fromDate, $lte: holiday.toDate },
+        "holidayRequest.date": { $gte: holiday.start, $lt: holiday.end },
       },
       { $set: { "holidayRequest.$[].holidayAdded": false } },
       { session }
     );
     await Attendance.deleteMany({
       attendanceType: AttendanceType.Holiday,
-      date: { $gte: holiday.fromDate, $lte: holiday.toDate },
+      date: { $gte: holiday.start, $lt: holiday.end },
     });
+    await session.commitTransaction();
     res.send({ message: `holiday for ${holiday?.description} is removed` });
   } catch (error) {
+    await session.abortTransaction();
     checkError(error, res);
   }
 }

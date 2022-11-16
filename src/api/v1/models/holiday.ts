@@ -1,17 +1,19 @@
 import mongoose from "mongoose";
 
 export interface HolidayDocument extends mongoose.Document {
-  fromDate: Date;
-  toDate: Date;
-  description: String;
+  start: Date;
+  end: Date;
+  description: string;
+  title: string;
   adminId: string;
 }
 
 var HolidaySchema = new mongoose.Schema(
   {
-    fromDate: { type: Date, required: true },
-    toDate: { type: Date, required: true },
+    start: { type: Date, required: true },
+    end: { type: Date, required: true },
     description: { type: String, default: "" },
+    title: { type: String, default: "" },
     adminId: { type: String, required: true },
   },
   {

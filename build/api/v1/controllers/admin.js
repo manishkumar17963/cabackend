@@ -1896,7 +1896,7 @@ exports.completeMeetingHandler = completeMeetingHandler;
 //new creation
 function addHolidayHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var session, _a, fromDateString, toDateString, description, toDate, fromDate_1, admin, holiday, array, newHoliday, err_12;
+        var session, _a, fromDateString, toDateString, description, title, end, start_1, admin, holiday, array, newMap, newHoliday, err_12;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0: return [4 /*yield*/, mongoose_1.default.startSession()];
@@ -1906,31 +1906,33 @@ function addHolidayHandler(req, res) {
                     _b.label = 2;
                 case 2:
                     _b.trys.push([2, 8, , 10]);
-                    _a = req.body, fromDateString = _a.fromDateString, toDateString = _a.toDateString, description = _a.description;
-                    toDate = moment_1.default(toDateString);
-                    fromDate_1 = moment_1.default(fromDateString);
+                    _a = req.body, fromDateString = _a.fromDateString, toDateString = _a.toDateString, description = _a.description, title = _a.title;
+                    console.log("body", req.body);
+                    end = moment_1.default(toDateString);
+                    start_1 = moment_1.default(fromDateString);
                     admin = req.user;
-                    if (fromDate_1.isBefore(moment_1.default())) {
+                    if (start_1.isBefore(moment_1.default())) {
                         throw new customError_1.default("Bad Request", 404, "Day Already Passed");
                     }
+                    console.log("before filter", start_1.toDate(), end.toDate());
                     return [4 /*yield*/, holiday_1.findHoliday({
                             $or: [
                                 {
                                     $and: [
-                                        { fromDate: { $lt: toDate } },
-                                        { fromDate: { $gt: fromDate_1 } },
+                                        { start: { $lt: end.toDate() } },
+                                        { start: { $gt: start_1.toDate() } },
                                     ],
                                 },
                                 {
                                     $and: [
-                                        { fromDate: { $lt: fromDate_1 } },
-                                        { toDate: { $lt: toDate } },
+                                        { start: { $gt: start_1.toDate() } },
+                                        { end: { $lt: end.toDate() } },
                                     ],
                                 },
                                 {
                                     $and: [
-                                        { toDate: { $lt: toDate } },
-                                        { fromDate: { $gt: fromDate_1 } },
+                                        { end: { $lt: end.toDate() } },
+                                        { end: { $gt: start_1.toDate() } },
                                     ],
                                 },
                             ],
@@ -1938,26 +1940,30 @@ function addHolidayHandler(req, res) {
                 case 3:
                     holiday = _b.sent();
                     if (holiday) {
-                        throw new customError_1.default("Bad Request", 400, "Some Holiday date already added");
+                        throw new customError_1.default("Bad Request", 400, "Same Holiday date already added");
                     }
-                    array = new Array(toDate.diff(fromDate_1, "days"));
-                    return [4 /*yield*/, attendance_2.default.insertMany(array.map(function (value, index) { return ({
-                            date: fromDate_1.add(index, "day"),
-                            open: false,
-                            attendanceType: attendanceType_1.default.Holiday,
-                            attendance: [],
-                        }); }))];
+                    console.log("afterfilter", start_1.toDate(), end.toDate());
+                    array = Array.apply(0, Array(end.diff(start_1, "days")));
+                    newMap = array.map(function (value, index) { return ({
+                        date: start_1.clone().startOf("day").add(index, "day").toDate(),
+                        open: false,
+                        attendanceType: attendanceType_1.default.Holiday,
+                        attendance: [],
+                    }); });
+                    return [4 /*yield*/, attendance_2.default.insertMany(newMap)];
                 case 4:
                     _b.sent();
+                    console.log("staa", start_1.toDate(), end.toDate());
                     return [4 /*yield*/, holiday_1.createHoliday({
-                            fromDate: fromDate_1,
-                            toDate: toDate,
+                            start: start_1.toDate(),
+                            end: end.toDate(),
                             description: description,
+                            title: title,
                             adminId: admin._id,
                         })];
                 case 5:
                     newHoliday = _b.sent();
-                    return [4 /*yield*/, employee_1.updateAllEmployee({ "holidayRequest.date": { $gte: fromDate_1, $lte: toDate } }, { $set: { "holidayRequest.$[].holidayAdded": true } }, { session: session })];
+                    return [4 /*yield*/, employee_1.updateAllEmployee({ "holidayRequest.date": { $gte: start_1, $lte: end } }, { $set: { "holidayRequest.$[].holidayAdded": true } }, { session: session })];
                 case 6:
                     _b.sent();
                     return [4 /*yield*/, session.commitTransaction()];
@@ -1991,35 +1997,41 @@ function removeHolidayHandler(req, res) {
                     session.startTransaction();
                     _a.label = 2;
                 case 2:
-                    _a.trys.push([2, 6, , 7]);
+                    _a.trys.push([2, 7, , 9]);
                     admin = req.user;
-                    return [4 /*yield*/, holiday_1.findAndDeleteHoliday({ _id: req.params.holidayId }, { session: session })];
+                    return [4 /*yield*/, holiday_1.findAndDeleteHoliday({ _id: req.body.holidayId }, { session: session })];
                 case 3:
                     holiday = _a.sent();
                     if (!holiday) {
                         throw new customError_1.default("Bad Request", 404, "No such holiday found");
                     }
-                    if (moment_1.default(holiday.fromDate).isBefore(moment_1.default())) {
+                    if (moment_1.default(holiday.start).isBefore(moment_1.default())) {
                         throw new customError_1.default("Bad Request", 404, "Day Already Passed,Now you cant delete holiday");
                     }
                     return [4 /*yield*/, employee_1.updateAllEmployee({
-                            "holidayRequest.date": { $gte: holiday.fromDate, $lte: holiday.toDate },
+                            "holidayRequest.date": { $gte: holiday.start, $lt: holiday.end },
                         }, { $set: { "holidayRequest.$[].holidayAdded": false } }, { session: session })];
                 case 4:
                     _a.sent();
                     return [4 /*yield*/, attendance_2.default.deleteMany({
                             attendanceType: attendanceType_1.default.Holiday,
-                            date: { $gte: holiday.fromDate, $lte: holiday.toDate },
+                            date: { $gte: holiday.start, $lt: holiday.end },
                         })];
                 case 5:
                     _a.sent();
-                    res.send({ message: "holiday for " + (holiday === null || holiday === void 0 ? void 0 : holiday.description) + " is removed" });
-                    return [3 /*break*/, 7];
+                    return [4 /*yield*/, session.commitTransaction()];
                 case 6:
+                    _a.sent();
+                    res.send({ message: "holiday for " + (holiday === null || holiday === void 0 ? void 0 : holiday.description) + " is removed" });
+                    return [3 /*break*/, 9];
+                case 7:
                     error_19 = _a.sent();
+                    return [4 /*yield*/, session.abortTransaction()];
+                case 8:
+                    _a.sent();
                     checkErrors_1.default(error_19, res);
-                    return [3 /*break*/, 7];
-                case 7: return [2 /*return*/];
+                    return [3 /*break*/, 9];
+                case 9: return [2 /*return*/];
             }
         });
     });

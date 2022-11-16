@@ -36,7 +36,7 @@ import MeetingStatus from "../enums/meetingStatus";
 import Customer from "../models/customer";
 import { SendOtp } from "../helpers/sendOtp";
 import AttendanceType from "../enums/attendanceType";
-import { findProject } from "../services/project.Service";
+import { findAndUpdateProject, findProject } from "../services/project.Service";
 import { CommentDocument } from "../models/comment";
 import Priority from "../enums/priority";
 import TaskStatus from "../enums/taskStatus";
@@ -52,7 +52,11 @@ import {
   addSocketProjectHandler,
   deleteConversationHandler,
   deleteSocketProjectHandler,
+  updateProjectStatusHandler,
 } from "../socketHandlers/admin";
+import BillingType from "../enums/billingType";
+import PaymentStatus from "../enums/paymentStatus";
+import { findCustomer } from "../services/customer";
 
 export async function createEmployeeHandler(req: Request, res: Response) {
   var session: ClientSession = await mongoose.startSession();
@@ -92,13 +96,150 @@ export async function createEmployeeHandler(req: Request, res: Response) {
   }
 }
 
+export async function updateProjectHandler(req: Request, res: Response) {
+  try {
+    const {
+      projectId,
+      name,
+      billingType,
+      priority,
+      startDate,
+      expectedEndDate,
+      description,
+    }: {
+      projectId: string;
+      name: string;
+      billingType: BillingType;
+      startDate: string;
+      expectedEndDate: string;
+      priority: Priority;
+      description: string;
+    } = req.body;
+    const project = await findAndUpdateProject(
+      { _id: projectId },
+      { $set: req.body },
+      { new: true }
+    );
+
+    res.send({
+      message: `your project updated`,
+    });
+  } catch (error) {
+    checkError(error, res);
+  }
+}
+
+export async function completeProjectHandler(req: Request, res: Response) {
+  try {
+    const user = req.user! as EmployeeDocument;
+    const project = await findProject({
+      _id: req.body.projectId,
+
+      status: { $nin: [TaskStatus.Declined] },
+      paymentStatus: { $ne: PaymentStatus.Paid },
+    });
+    if (!project) {
+      throw new CustomError(
+        "Bad Request",
+        404,
+        "No such project found or project already declined"
+      );
+    }
+    if (project.primaryEmployee != user._id) {
+      throw new CustomError(
+        "Bad Request",
+        404,
+        "You are not a primary employee for this project"
+      );
+    }
+    const customer = await findCustomer({ _id: project.customerId });
+
+    project.status = TaskStatus.Completed;
+
+    let notificationMessage = `hey ${customer?.firstname},your task ${project.description} is completed.`;
+
+    await project.save();
+    await updateProjectStatusHandler(project, req.body);
+    res.send({ message: `project ${project.description} is completed` });
+  } catch (error) {
+    checkError(error, res);
+  }
+}
+
+export async function declinedProjectHandler(req: Request, res: Response) {
+  try {
+    const user = req.user! as EmployeeDocument;
+    const task = await findAndUpdateProject(
+      {
+        _id: req.body.projectId,
+        primaryEmployee: user._id,
+        status: { $nin: [TaskStatus.Completed, TaskStatus.Declined] },
+      },
+      { $set: { status: TaskStatus.Declined } },
+      { new: true }
+    );
+    if (!task) {
+      throw new CustomError(
+        "Bad Request",
+        404,
+        "No such project found or project completed or project already declined"
+      );
+    }
+
+    await updateProjectStatusHandler(task, req.body);
+    res.send({ message: `task with ${task.description} declined by you` });
+  } catch (error) {
+    checkError(error, res);
+  }
+}
+
+export async function updateStatusHandler(req: Request, res: Response) {
+  try {
+    const user = req.user! as EmployeeDocument;
+    const project = await findProject({
+      _id: req.body.projectId,
+      status: { $nin: [TaskStatus.Completed, TaskStatus.Declined] },
+    });
+    console.log("project", project);
+    if (!project) {
+      throw new CustomError(
+        "Bad Request",
+        404,
+        "No such project found or project completed or project already declined"
+      );
+    }
+
+    if (project.primaryEmployee != user._id) {
+      throw new CustomError(
+        "Bad Request",
+        404,
+        "You are not a primary employee for this project"
+      );
+    }
+
+    project.status = req.body.status;
+    await project.save();
+
+    await updateProjectStatusHandler(project, req.body);
+    res.send({ message: `project with ${project.description} status updated` });
+  } catch (error) {
+    checkError(error, res);
+  }
+}
+
 export async function verifyEmployeeHandler(req: Request, res: Response) {
+  const session = await mongoose.startSession();
+  session.startTransaction();
   try {
     console.log(req.body);
     const employee = await findAndUpdateEmployee(
-      { number: req.body.number, codeValid: true, code: req.body.code },
+      {
+        number: req.body.number,
+        codeValid: true,
+        code: parseInt(req.body.code),
+      },
       { $set: { codeValid: false } },
-      {}
+      { session }
     );
     console.log(employee);
     if (!employee) {
@@ -108,14 +249,34 @@ export async function verifyEmployeeHandler(req: Request, res: Response) {
     const setting = await findSetting({});
     const date = moment().startOf("month");
     const types: { [key: string]: SickLeaveCategory } = {};
-    Object.entries(setting?.types ?? []).forEach((value) => {
+    console.log(
+      "setting",
       //@ts-ignore
-      types[value[0]] = { ...value[1], completed: 0 };
-    });
+      setting?.types?.entries()?.next()?.value ?? {}
+    );
+    //@ts-ignore
+    const iterator = setting?.types?.entries() ?? new Map().entries();
+    let value = iterator.next().value;
+    while (value) {
+      types[value[0]] = { ...(value[1]?.toJSON() ?? value[1]), completed: 0 };
+      value = iterator.next().value;
+    }
+
     employee.sickLeave = setting ? [{ date: date.toDate(), types: types }] : [];
     await employee.save();
-    res.status(200).send({ employee, token });
+    await session.commitTransaction();
+    res.status(200).send({
+      employee: {
+        ...employee.toJSON(),
+        sickLeave: employee.sickLeave.map((value) => {
+          //@ts-ignore
+          return { ...value.toJSON(), types: Object.fromEntries(value.types) };
+        }),
+      },
+      token,
+    });
   } catch (err) {
+    await session.abortTransaction();
     checkError(err, res);
   }
 }
@@ -201,7 +362,14 @@ export async function loginEmployeeAppHandler(req: Request, res: Response) {
 
 export async function getStatusHandler(req: Request, res: Response) {
   try {
-    res.send(req.user);
+    const user = req.user! as EmployeeDocument;
+    res.send({
+      ...user?.toJSON(),
+      sickLeave: user.sickLeave.map((value) => {
+        //@ts-ignore
+        return { ...value.toJSON(), types: Object.fromEntries(value.types) };
+      }),
+    });
   } catch (err) {
     checkError(err, res);
   }
@@ -326,8 +494,8 @@ export async function addHolidayRequestHandler(req: Request, res: Response) {
     const { date, reason, type }: { date: Date; reason: string; type: string } =
       req.body;
     const holiday = await findHoliday({
-      fromDate: { $lte: date },
-      toDate: { $gte: date },
+      start: { $lte: date },
+      end: { $gt: date },
     });
     if (holiday) {
       throw new CustomError(
@@ -336,8 +504,8 @@ export async function addHolidayRequestHandler(req: Request, res: Response) {
         "This day was holiday declared by owner"
       );
     }
-    const requestIndex = user.holidayRequest.findIndex(
-      (value) => value.date.toISOString() == date.toISOString()
+    const requestIndex = user.holidayRequest.findIndex((value) =>
+      moment(value.date).isSame(moment(date))
     );
 
     const value = user.sickLeave.find((value, index) => {
@@ -350,7 +518,10 @@ export async function addHolidayRequestHandler(req: Request, res: Response) {
     if (!value) {
       throw new CustomError("Bad Request", 404, "No such type of leave found");
     }
-    if (value.types[type].value - value.types[type].completed <= 0) {
+    //@ts-ignore
+    const leaves = Object.fromEntries(value.types);
+    console.log("leaves", leaves);
+    if (leaves[type]?.value - leaves[type]?.completed <= 0) {
       throw new CustomError("Bad Request", 404, "No Remaining live found");
     }
     if (requestIndex == -1) {
@@ -360,7 +531,7 @@ export async function addHolidayRequestHandler(req: Request, res: Response) {
         date,
         reason,
 
-        status: HolidayStatus.Approved,
+        status: HolidayStatus.Pending,
         holidayAdded: false,
         holidayType: HolidayType.Paid,
         type: type,

@@ -5,9 +5,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 var mongoose_1 = __importDefault(require("mongoose"));
 var HolidaySchema = new mongoose_1.default.Schema({
-    fromDate: { type: Date, required: true },
-    toDate: { type: Date, required: true },
+    start: { type: Date, required: true },
+    end: { type: Date, required: true },
     description: { type: String, default: "" },
+    title: { type: String, default: "" },
     adminId: { type: String, required: true },
 }, {
     timestamps: true,

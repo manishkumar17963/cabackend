@@ -242,5 +242,6 @@ export const addHolidaySchema = object({
     fromDateString: string().required(),
     toDateString: string().required(),
     description: string().required(),
+    title: string().required(),
   }),
 });

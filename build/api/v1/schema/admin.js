@@ -212,5 +212,6 @@ exports.addHolidaySchema = joi_1.object({
         fromDateString: joi_1.string().required(),
         toDateString: joi_1.string().required(),
         description: joi_1.string().required(),
+        title: joi_1.string().required(),
     }),
 });

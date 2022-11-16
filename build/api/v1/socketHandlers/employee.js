@@ -50,11 +50,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.initialEmployeeDataHandler = exports.imageDetailHandler = exports.storageProjectImageHandler = exports.storageImportantImageHandler = exports.removeImportantHandler = exports.addImportantHandler = exports.storageProjectHandler = exports.employeeStorageHandler = exports.employeeSrisudhaHandler = exports.assignEmployeeMeeting = exports.employeeSocketHandler = void 0;
+exports.initialEmployeeDataHandler = exports.imageDetailHandler = exports.storageProjectImageHandler = exports.storageImportantImageHandler = exports.removeImportantHandler = exports.addImportantHandler = exports.storageProjectHandler = exports.employeeStorageHandler = exports.employeeSrisudhaHandler = exports.sickLeaveHandler = exports.assignEmployeeMeeting = exports.employeeSocketHandler = void 0;
+var moment_1 = __importDefault(require("moment"));
 var mongoose_1 = __importDefault(require("mongoose"));
 var serverStore_1 = require("../../../socket/serverStore");
 var attendanceType_1 = __importDefault(require("../enums/attendanceType"));
 var conversationType_1 = __importDefault(require("../enums/conversationType"));
+var meetingStatus_1 = __importDefault(require("../enums/meetingStatus"));
 var sendBy_1 = __importDefault(require("../enums/sendBy"));
 var taskStatus_1 = __importDefault(require("../enums/taskStatus"));
 var checkErrors_1 = require("../helpers/checkErrors");
@@ -68,6 +70,7 @@ var attendance_1 = require("../services/attendance");
 var branch_service_1 = require("../services/branch.service");
 var customer_1 = require("../services/customer");
 var employee_2 = require("../services/employee");
+var holiday_1 = require("../services/holiday");
 var meeting_1 = require("../services/meeting");
 var message_Service_1 = require("../services/message.Service");
 var project_Service_1 = require("../services/project.Service");
@@ -77,10 +80,30 @@ function employeeSocketHandler(socket) {
     var _this = this;
     //@ts-ignore
     if (socket.type == sendBy_1.default.Employee) {
+        socket.on("sick-leave", function (data) { return __awaiter(_this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, sickLeaveHandler(socket, data)];
+                    case 1:
+                        _a.sent();
+                        return [2 /*return*/];
+                }
+            });
+        }); });
         socket.on("employee-project", function (data) { return __awaiter(_this, void 0, void 0, function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0: return [4 /*yield*/, employeeProjectHandler(socket, data)];
+                    case 1:
+                        _a.sent();
+                        return [2 /*return*/];
+                }
+            });
+        }); });
+        socket.on("confirm-meeting", function (data) { return __awaiter(_this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, confirmMeetingHandler(socket, data)];
                     case 1:
                         _a.sent();
                         return [2 /*return*/];
@@ -244,12 +267,193 @@ function employeeSocketHandler(socket) {
                 }
             });
         }); });
+        socket.on("employee-holiday", function (data) { return __awaiter(_this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, employeeHolidayHandler(socket, data)];
+                    case 1:
+                        _a.sent();
+                        return [2 /*return*/];
+                }
+            });
+        }); });
+        socket.on("employee-date-meeting", function (data) { return __awaiter(_this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, employeeMeetingDateHandler(socket, data)];
+                    case 1:
+                        _a.sent();
+                        return [2 /*return*/];
+                }
+            });
+        }); });
     }
 }
 exports.employeeSocketHandler = employeeSocketHandler;
+function confirmMeetingHandler(socket, data) {
+    return __awaiter(this, void 0, void 0, function () {
+        var user, err_1;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    _a.trys.push([0, 2, , 3]);
+                    user = socket.user;
+                    return [4 /*yield*/, meeting_1.findAndUpdateMeeting({
+                            _id: data.meetingId,
+                            employeeId: user._id,
+                            meetingStatus: { $ne: meetingStatus_1.default.Completed },
+                        }, { $set: { employeeConfirmed: true } }, {})];
+                case 1:
+                    _a.sent();
+                    return [3 /*break*/, 3];
+                case 2:
+                    err_1 = _a.sent();
+                    return [3 /*break*/, 3];
+                case 3: return [2 /*return*/];
+            }
+        });
+    });
+}
+function employeeMeetingDateHandler(socket, data) {
+    return __awaiter(this, void 0, void 0, function () {
+        var user, projects, meetings_1, err_2;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    _a.trys.push([0, 2, , 3]);
+                    user = socket.user;
+                    return [4 /*yield*/, project_Service_1.aggregateProject([
+                            { $match: { "assignedEmployees.employeeId": user._id } },
+                            {
+                                $addFields: {
+                                    primary: {
+                                        $cond: {
+                                            if: {
+                                                $eq: [user._id, "$primaryEmployee"],
+                                            },
+                                            then: true,
+                                            else: false,
+                                        },
+                                    },
+                                },
+                            },
+                            {
+                                $lookup: {
+                                    from: "meetings",
+                                    let: { projectId: "$_id", primary: "$primary" },
+                                    pipeline: [
+                                        {
+                                            $match: {
+                                                meetingStartTime: {
+                                                    $gte: moment_1.default(data.date).toDate(),
+                                                    $lt: moment_1.default(data.date).add(1, "day").toDate(),
+                                                },
+                                                $expr: {
+                                                    $or: [
+                                                        { $eq: ["$employeeId", user._id] },
+                                                        {
+                                                            $and: [
+                                                                { $eq: ["$$projectId", "$projectId"] },
+                                                                { $eq: ["$$primary", true] },
+                                                            ],
+                                                        },
+                                                    ],
+                                                },
+                                            },
+                                        },
+                                        { $addFields: { primary: "$$primary" } },
+                                        {
+                                            $lookup: {
+                                                from: "employees",
+                                                let: { employeeId: "$employeeId" },
+                                                pipeline: [
+                                                    {
+                                                        $match: {
+                                                            $expr: {
+                                                                $eq: ["$_id", "$$employeeId"],
+                                                            },
+                                                        },
+                                                    },
+                                                    {
+                                                        $project: {
+                                                            _id: 1,
+                                                            username: 1,
+                                                            profileUri: 1,
+                                                            number: 1,
+                                                        },
+                                                    },
+                                                ],
+                                                as: "employee",
+                                            },
+                                        },
+                                        {
+                                            $lookup: {
+                                                from: "customers",
+                                                let: { customerId: "$customerId" },
+                                                pipeline: [
+                                                    {
+                                                        $match: {
+                                                            $expr: {
+                                                                $eq: ["$_id", "$$customerId"],
+                                                            },
+                                                        },
+                                                    },
+                                                    {
+                                                        $project: {
+                                                            _id: 1,
+                                                            username: 1,
+                                                            companyName: 1,
+                                                            number: 1,
+                                                            profileUri: 1,
+                                                        },
+                                                    },
+                                                ],
+                                                as: "customer",
+                                            },
+                                        },
+                                        { $sort: { createdAt: -1 } },
+                                    ],
+                                    as: "meetings",
+                                },
+                            },
+                        ])];
+                case 1:
+                    projects = _a.sent();
+                    console.log(projects);
+                    meetings_1 = [];
+                    projects.forEach(function (value) {
+                        meetings_1.push.apply(meetings_1, value.meetings);
+                    });
+                    console.log("meetings", meetings_1);
+                    socket.emit("employee-date-meeting-result", meetings_1);
+                    return [3 /*break*/, 3];
+                case 2:
+                    err_2 = _a.sent();
+                    console.log("error", err_2);
+                    return [3 /*break*/, 3];
+                case 3: return [2 /*return*/];
+            }
+        });
+    });
+}
+function employeeHolidayHandler(socket, data) {
+    return __awaiter(this, void 0, void 0, function () {
+        var meetings;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, holiday_1.aggregateHoliday([{ $sort: { createdAt: -1 } }])];
+                case 1:
+                    meetings = _a.sent();
+                    console.log("meetings", meetings, data);
+                    socket.emit("employee-holiday-result", meetings);
+                    return [2 /*return*/];
+            }
+        });
+    });
+}
 function assignEmployeeMeeting(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, meeting, project, err_1;
+        var user, meeting, project, err_3;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -280,7 +484,7 @@ function assignEmployeeMeeting(socket, data) {
                     _a.label = 5;
                 case 5: return [3 /*break*/, 7];
                 case 6:
-                    err_1 = _a.sent();
+                    err_3 = _a.sent();
                     return [3 /*break*/, 7];
                 case 7: return [2 /*return*/];
             }
@@ -288,9 +492,40 @@ function assignEmployeeMeeting(socket, data) {
     });
 }
 exports.assignEmployeeMeeting = assignEmployeeMeeting;
+function sickLeaveHandler(socket, data) {
+    return __awaiter(this, void 0, void 0, function () {
+        var user, employee, err_4;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    _a.trys.push([0, 2, , 3]);
+                    user = socket.user;
+                    return [4 /*yield*/, employee_2.findEmployee({ _id: user._id })];
+                case 1:
+                    employee = _a.sent();
+                    if (employee) {
+                        socket.emit("sick-leave-result", {
+                            sickLeave: employee.sickLeave.map(function (value) {
+                                //@ts-ignore
+                                return __assign(__assign({}, value.toJSON()), { types: Object.fromEntries(value.types) });
+                            }),
+                            events: employee.holidayRequest.map(function (value) { return (__assign(__assign({}, value.toJSON()), { title: value.reason, start: value.date, end: moment_1.default(value.date).add(1, "day") })); }),
+                        });
+                    }
+                    return [3 /*break*/, 3];
+                case 2:
+                    err_4 = _a.sent();
+                    console.log("err", err_4);
+                    return [3 /*break*/, 3];
+                case 3: return [2 /*return*/];
+            }
+        });
+    });
+}
+exports.sickLeaveHandler = sickLeaveHandler;
 function employeeSrisudhaHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, employees, admins, data_1, err_2;
+        var user, employees, admins, data_1, err_5;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -329,7 +564,7 @@ function employeeSrisudhaHandler(socket, data) {
                     socket.emit("employee-srisudha-result", data_1);
                     return [3 /*break*/, 4];
                 case 3:
-                    err_2 = _a.sent();
+                    err_5 = _a.sent();
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -339,7 +574,7 @@ function employeeSrisudhaHandler(socket, data) {
 exports.employeeSrisudhaHandler = employeeSrisudhaHandler;
 function employeeStorageHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, uploads, shared, err_3;
+        var user, uploads, shared, err_6;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -389,7 +624,7 @@ function employeeStorageHandler(socket, data) {
                     socket.emit("employee-storage-result", { uploads: uploads, shared: shared });
                     return [3 /*break*/, 5];
                 case 4:
-                    err_3 = _a.sent();
+                    err_6 = _a.sent();
                     return [3 /*break*/, 5];
                 case 5: return [2 /*return*/];
             }
@@ -399,7 +634,7 @@ function employeeStorageHandler(socket, data) {
 exports.employeeStorageHandler = employeeStorageHandler;
 function storageProjectHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, projects, err_4;
+        var user, projects, err_7;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -417,7 +652,7 @@ function storageProjectHandler(socket, data) {
                     socket.emit("employee-storage-project-result", projects);
                     return [3 /*break*/, 4];
                 case 3:
-                    err_4 = _a.sent();
+                    err_7 = _a.sent();
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -427,7 +662,7 @@ function storageProjectHandler(socket, data) {
 exports.storageProjectHandler = storageProjectHandler;
 function addImportantHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, update, err_5;
+        var user, update, err_8;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -442,7 +677,7 @@ function addImportantHandler(socket, data) {
                     socket.user = update;
                     return [3 /*break*/, 4];
                 case 3:
-                    err_5 = _a.sent();
+                    err_8 = _a.sent();
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -453,7 +688,7 @@ exports.addImportantHandler = addImportantHandler;
 function removeImportantHandler(socket, data) {
     var _a;
     return __awaiter(this, void 0, void 0, function () {
-        var user, important, err_6;
+        var user, important, err_9;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
@@ -470,7 +705,7 @@ function removeImportantHandler(socket, data) {
                     _b.sent();
                     return [3 /*break*/, 4];
                 case 3:
-                    err_6 = _b.sent();
+                    err_9 = _b.sent();
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -480,7 +715,7 @@ function removeImportantHandler(socket, data) {
 exports.removeImportantHandler = removeImportantHandler;
 function storageImportantImageHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, data_2, err_7;
+        var user, data_2, err_10;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -506,7 +741,7 @@ function storageImportantImageHandler(socket, data) {
                     socket.emit("employee-storage-important-image-result", data_2 === null || data_2 === void 0 ? void 0 : data_2.importantFiles);
                     return [3 /*break*/, 4];
                 case 3:
-                    err_7 = _a.sent();
+                    err_10 = _a.sent();
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -516,7 +751,7 @@ function storageImportantImageHandler(socket, data) {
 exports.storageImportantImageHandler = storageImportantImageHandler;
 function storageProjectImageHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, projects, err_8;
+        var user, projects, err_11;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -547,7 +782,7 @@ function storageProjectImageHandler(socket, data) {
                     socket.emit("employee-storage-project-image-result", projects);
                     return [3 /*break*/, 4];
                 case 3:
-                    err_8 = _a.sent();
+                    err_11 = _a.sent();
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -557,7 +792,7 @@ function storageProjectImageHandler(socket, data) {
 exports.storageProjectImageHandler = storageProjectImageHandler;
 function imageDetailHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, favorite, images, err_9;
+        var user, favorite, images, err_12;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -580,7 +815,7 @@ function imageDetailHandler(socket, data) {
                     socket.emit("employee-image-detail-result", __assign(__assign({}, images[0]), { favorite: favorite ? true : false }));
                     return [3 /*break*/, 4];
                 case 3:
-                    err_9 = _a.sent();
+                    err_12 = _a.sent();
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -590,7 +825,7 @@ function imageDetailHandler(socket, data) {
 exports.imageDetailHandler = imageDetailHandler;
 function employeeTaskDetailHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var tasks, taskDetail, comments, err_10;
+        var tasks, taskDetail, comments, err_13;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -626,8 +861,8 @@ function employeeTaskDetailHandler(socket, data) {
                 case 4: return [2 /*return*/];
                 case 5: return [3 /*break*/, 7];
                 case 6:
-                    err_10 = _a.sent();
-                    console.log("err", err_10);
+                    err_13 = _a.sent();
+                    console.log("err", err_13);
                     return [3 /*break*/, 7];
                 case 7: return [2 /*return*/];
             }
@@ -823,7 +1058,7 @@ function employeeProjectHandler(socket, data) {
 }
 function initialEmployeeDataHandler(socket) {
     return __awaiter(this, void 0, void 0, function () {
-        var branches, templates, employees, admins, err_11;
+        var branches, templates, employees, admins, err_14;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -848,7 +1083,7 @@ function initialEmployeeDataHandler(socket) {
                     });
                     return [3 /*break*/, 6];
                 case 5:
-                    err_11 = _a.sent();
+                    err_14 = _a.sent();
                     return [3 /*break*/, 6];
                 case 6: return [2 /*return*/];
             }
@@ -1087,7 +1322,7 @@ function employeeMeetingHandler(socket, data) {
 function addAttendanceHandler(socket, data) {
     var _a;
     return __awaiter(this, void 0, void 0, function () {
-        var user, currentDate, dateCheck, attendance, employee, err_12;
+        var user, currentDate, dateCheck, attendance, employee, err_15;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
@@ -1130,8 +1365,8 @@ function addAttendanceHandler(socket, data) {
                     });
                     return [3 /*break*/, 10];
                 case 9:
-                    err_12 = _b.sent();
-                    checkErrors_1.socketError(err_12, socket, "add-attendance-response");
+                    err_15 = _b.sent();
+                    checkErrors_1.socketError(err_15, socket, "add-attendance-response");
                     return [3 /*break*/, 10];
                 case 10: return [2 /*return*/];
             }

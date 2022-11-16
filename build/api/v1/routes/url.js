@@ -18,5 +18,6 @@ UrlRouter.put("/employee/message/presigned/url", auth_1.default(employee_1.defau
 UrlRouter.put("/admin/message/presigned/url", auth_1.default(admin_1.default), sendPresignedUrl_1.sendPresignedUrlHandler(folderType_1.default.Admin, false, true));
 UrlRouter.put("/admin/profile/presigned/url", sendPresignedUrl_1.sendPresignedUrlHandler(folderType_1.default.Admin, true));
 UrlRouter.put("/customer/profile/presigned/url", sendPresignedUrl_1.sendPresignedUrlHandler(folderType_1.default.Customer, true));
+UrlRouter.put("/employee/profile/presigned/url", sendPresignedUrl_1.sendPresignedUrlHandler(folderType_1.default.Employee, true));
 UrlRouter.put("/employee/presigned/url", auth_1.default(employee_1.default), sendPresignedUrl_1.sendPresignedUrlHandler(folderType_1.default.Employee));
 exports.default = UrlRouter;
