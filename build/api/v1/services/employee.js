@@ -39,7 +39,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.aggregateEmployee = exports.deletePost = exports.updateAllEmployee = exports.findAndUpdateEmployee = exports.validatePassword = exports.findEmployee = exports.createEmployee = void 0;
+exports.aggregateEmployee = exports.deletePost = exports.updateAllEmployee = exports.findAndUpdateEmployee = exports.validatePassword = exports.findAllEmployee = exports.findEmployee = exports.createEmployee = void 0;
 var employee_1 = __importDefault(require("../models/employee"));
 function createEmployee(input) {
     return __awaiter(this, void 0, void 0, function () {
@@ -59,6 +59,16 @@ function findEmployee(query, select, options) {
     });
 }
 exports.findEmployee = findEmployee;
+function findAllEmployee(query, select, options) {
+    if (select === void 0) { select = {}; }
+    if (options === void 0) { options = {}; }
+    return __awaiter(this, void 0, void 0, function () {
+        return __generator(this, function (_a) {
+            return [2 /*return*/, employee_1.default.find(query, select, options)];
+        });
+    });
+}
+exports.findAllEmployee = findAllEmployee;
 function validatePassword(_a) {
     var number = _a.number, password = _a.password;
     return __awaiter(this, void 0, void 0, function () {

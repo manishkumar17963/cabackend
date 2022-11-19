@@ -31,6 +31,9 @@ AdminRouter.put("/decline/task/:taskId", [auth_1.default(admin_2.default)], admi
 AdminRouter.put("/complete/project", [auth_1.default(admin_2.default)], admin_1.completeProjectHandler);
 AdminRouter.put("/decline/project", [auth_1.default(admin_2.default)], admin_1.declinedProjectHandler);
 AdminRouter.put("/update/project/status", [auth_1.default(admin_2.default)], admin_1.updateStatusHandler);
+AdminRouter.put("/complete/task", [auth_1.default(admin_2.default)], admin_1.completeTaskHandler);
+AdminRouter.put("/decline/task", [auth_1.default(admin_2.default)], admin_1.declinedTaskHandler);
+AdminRouter.put("/update/task/status", [auth_1.default(admin_2.default)], admin_1.updateTaskStatusHandler);
 AdminRouter.post("/add/project/quotation", [validateRequest_1.default(admin_3.createQuotationSchema), auth_1.default(admin_2.default)], admin_1.addQuotationHandler);
 AdminRouter.post("/add/project/invoice", [validateRequest_1.default(admin_3.createInvoiceSchema), auth_1.default(admin_2.default)], admin_1.addInvoiceHandler);
 AdminRouter.put("/update/payment/status", [validateRequest_1.default(admin_3.changePaymentStatusManuallySchema), auth_1.default(admin_2.default)], admin_1.changePaymentStatusManuallyHandler);

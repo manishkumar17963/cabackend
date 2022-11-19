@@ -18,6 +18,14 @@ export async function findCustomer(
   return Customer.findOne(query, select, options);
 }
 
+export async function findAllCustomer(
+  query: FilterQuery<CustomerDocument>,
+  select: { [key: string]: number } = {},
+  options: QueryOptions = {}
+) {
+  return Customer.find(query, select, options);
+}
+
 export async function validatePassword({
   number,
   password,

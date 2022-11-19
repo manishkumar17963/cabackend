@@ -39,7 +39,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.aggregateCustomer = exports.deletePost = exports.findAndUpdateCustomer = exports.validatePassword = exports.findCustomer = exports.createCustomer = void 0;
+exports.aggregateCustomer = exports.deletePost = exports.findAndUpdateCustomer = exports.validatePassword = exports.findAllCustomer = exports.findCustomer = exports.createCustomer = void 0;
 var customer_1 = __importDefault(require("../models/customer"));
 function createCustomer(input) {
     return __awaiter(this, void 0, void 0, function () {
@@ -59,6 +59,16 @@ function findCustomer(query, select, options) {
     });
 }
 exports.findCustomer = findCustomer;
+function findAllCustomer(query, select, options) {
+    if (select === void 0) { select = {}; }
+    if (options === void 0) { options = {}; }
+    return __awaiter(this, void 0, void 0, function () {
+        return __generator(this, function (_a) {
+            return [2 /*return*/, customer_1.default.find(query, select, options)];
+        });
+    });
+}
+exports.findAllCustomer = findAllCustomer;
 function validatePassword(_a) {
     var number = _a.number, password = _a.password;
     return __awaiter(this, void 0, void 0, function () {

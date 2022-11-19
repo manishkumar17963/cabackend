@@ -5,9 +5,11 @@ import {
   addHolidayRequestHandler,
   assignTaskToEmployeeHandler,
   completeProjectHandler,
+  completeTaskHandler,
   createEmployeeHandler,
   createTaskCustomerHandler,
   declinedProjectHandler,
+  declinedTaskHandler,
   employeeConnectMeetingHandler,
   forgotPasswordHandler,
   getStatusHandler,
@@ -15,6 +17,7 @@ import {
   logoutEmployeeHandler,
   requestMeetingHandler,
   updateProjectHandler,
+  updateTaskStatusHandler,
   verifyEmployeeHandler,
   verifyForgotOtpHandler,
 } from "../controllers/employee";
@@ -99,6 +102,24 @@ EmployeeRouter.put(
   "/update/project/status",
   [authRequired(Employee)],
   updateStatusHandler
+);
+
+EmployeeRouter.put(
+  "/complete/task",
+  [authRequired(Employee)],
+  completeTaskHandler
+);
+
+EmployeeRouter.put(
+  "/decline/task",
+  [authRequired(Employee)],
+  declinedTaskHandler
+);
+
+EmployeeRouter.put(
+  "/update/task/status",
+  [authRequired(Employee)],
+  updateTaskStatusHandler
 );
 
 EmployeeRouter.put(

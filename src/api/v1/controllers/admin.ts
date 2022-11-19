@@ -1008,33 +1008,11 @@ export async function removeEmployeeFromProjectHandler(
   }
 }
 
-export async function declinedTaskHandler(req: Request, res: Response) {
-  try {
-    const task = await findAndUpdateTask(
-      {
-        _id: req.params.taskId,
-        status: { $nin: [TaskStatus.Completed, TaskStatus.Declined] },
-      },
-      { $set: { status: TaskStatus.Declined } },
-      { new: true }
-    );
-    if (!task) {
-      throw new CustomError(
-        "Bad Request",
-        404,
-        "No such task found or task completed or task already declined"
-      );
-    }
-    res.send({ message: `task with ${task.description} declined by you` });
-  } catch (error) {
-    checkError(error, res);
-  }
-}
-
 export async function completeProjectHandler(req: Request, res: Response) {
   try {
     const project = await findProject({
       _id: req.body.projectId,
+      clientApproved: true,
       status: { $nin: [TaskStatus.Declined] },
       paymentStatus: { $ne: PaymentStatus.Paid },
     });
@@ -1045,6 +1023,7 @@ export async function completeProjectHandler(req: Request, res: Response) {
         "No such project found or project already declined"
       );
     }
+
     const customer = await findCustomer({ _id: project.customerId });
 
     project.status = TaskStatus.Completed;
@@ -1064,6 +1043,7 @@ export async function declinedProjectHandler(req: Request, res: Response) {
     const task = await findAndUpdateProject(
       {
         _id: req.body.projectId,
+        clientApproved: true,
         status: { $nin: [TaskStatus.Completed, TaskStatus.Declined] },
       },
       { $set: { status: TaskStatus.Declined } },
@@ -1088,6 +1068,7 @@ export async function updateStatusHandler(req: Request, res: Response) {
     const project = await findAndUpdateProject(
       {
         _id: req.body.projectId,
+        clientApproved: true,
         status: { $nin: [TaskStatus.Completed, TaskStatus.Declined] },
       },
       { $set: { status: req.body.status } },
@@ -1107,7 +1088,78 @@ export async function updateStatusHandler(req: Request, res: Response) {
     checkError(error, res);
   }
 }
+export async function completeTaskHandler(req: Request, res: Response) {
+  try {
+    const task = await findTask({
+      _id: req.body.taskId,
+      status: { $nin: [TaskStatus.Declined] },
+    });
+    if (!task) {
+      throw new CustomError(
+        "Bad Request",
+        404,
+        "No such project found or project already declined"
+      );
+    }
 
+    task.status = TaskStatus.Completed;
+
+    await task.save();
+
+    res.send({ message: `project ${task.name} is completed` });
+  } catch (error) {
+    checkError(error, res);
+  }
+}
+
+export async function declinedTaskHandler(req: Request, res: Response) {
+  try {
+    const task = await findAndUpdateTask(
+      {
+        _id: req.body.taskId,
+        status: { $nin: [TaskStatus.Completed, TaskStatus.Declined] },
+      },
+      { $set: { status: TaskStatus.Declined } },
+      { new: true }
+    );
+    if (!task) {
+      throw new CustomError(
+        "Bad Request",
+        404,
+        "No such task found or task completed or task already declined"
+      );
+    }
+
+    res.send({ message: `task with ${task.name} declined by you` });
+  } catch (error) {
+    checkError(error, res);
+  }
+}
+
+export async function updateTaskStatusHandler(req: Request, res: Response) {
+  try {
+    const task = await findAndUpdateTask(
+      {
+        _id: req.body.taskId,
+        status: { $nin: [TaskStatus.Completed, TaskStatus.Declined] },
+      },
+      { $set: { status: req.body.status } },
+      { new: true }
+    );
+
+    if (!task) {
+      throw new CustomError(
+        "Bad Request",
+        404,
+        "No such project found or project completed or project already declined"
+      );
+    }
+
+    res.send({ message: `project with ${task.name} status updated` });
+  } catch (error) {
+    checkError(error, res);
+  }
+}
 export async function addQuotationHandler(req: Request, res: Response) {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -1387,6 +1439,8 @@ export async function addCommentHandler(req: Request, res: Response) {
 }
 
 export async function approveHolidayHandler(req: Request, res: Response) {
+  var session: ClientSession = await mongoose.startSession();
+  session.startTransaction();
   try {
     const {
       employeeId,
@@ -1405,7 +1459,7 @@ export async function approveHolidayHandler(req: Request, res: Response) {
           "holidayRequest.$.approvedBy": admin._id,
         },
       },
-      { new: true, projection: { "holidayRequest.$": 1, sickId: 1 } }
+      { new: true, projection: { "holidayRequest.$": 1 }, session }
     );
     if (!employee) {
       throw new CustomError(
@@ -1414,7 +1468,7 @@ export async function approveHolidayHandler(req: Request, res: Response) {
         "No such holiday found for this employee"
       );
     }
-    const value = employee.sickLeave.find((value, index) => {
+    const index = employee.sickLeave.findIndex((value, index) => {
       if (
         moment(value.date).month() <=
         moment(employee.holidayRequest[0].date).month()
@@ -1424,20 +1478,40 @@ export async function approveHolidayHandler(req: Request, res: Response) {
         return false;
       }
     });
-    if (!value) {
+    if (index == -1) {
       throw new CustomError("Bad Request", 404, "No such type of leave found");
     }
+
+    //@ts-ignore
+    const types = Object.fromEntries(employee.sickLeave[index].types);
     if (
-      value.types[employee.holidayRequest[0].type].value -
-        value.types[employee.holidayRequest[0].type].completed <=
+      types[employee.holidayRequest[0].type].value -
+        types[employee.holidayRequest[0].type].completed <=
       0
     ) {
       throw new CustomError("Bad Request", 404, "No Remaining live found");
     }
+    employee.sickLeave = [
+      ...employee.sickLeave.slice(0, index),
+      {
+        ...employee.sickLeave[index],
+        types: {
+          ...types,
+          [employee.holidayRequest[0].type]: {
+            ...types[employee.holidayRequest[0].type],
+            completed: types[employee.holidayRequest[0].type].completed + 1,
+          },
+        },
+      },
+      ...employee.sickLeave.slice(index + 1),
+    ];
+    await employee.save();
+    await session.commitTransaction();
     res.send({
       message: `holiday of employee ${employee.username} is approved`,
     });
   } catch (error) {
+    await session.abortTransaction();
     checkError(error, res);
   }
 }
@@ -1528,7 +1602,7 @@ export async function toggleApprovalAttendanceHandler(
         "No such attendance found for this customer id"
       );
     }
-    attendance.attendance[0].approved = !attendance.attendance[0].approved;
+    // attendance.attendance[0].approved = !attendance.attendance[0].approved;
     await attendance.save();
     res.send({
       message: `attendance ${

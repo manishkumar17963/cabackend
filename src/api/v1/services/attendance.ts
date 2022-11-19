@@ -18,6 +18,14 @@ export async function findAttendance(
   return Attendance.findOne(query, select, options);
 }
 
+export async function findAllAttendance(
+  query: FilterQuery<AttendanceDocument>,
+  select: { [key: string]: any } = {},
+  options: QueryOptions = {}
+) {
+  return Attendance.find(query, select, options);
+}
+
 export async function findAndUpdateAttendance(
   query: FilterQuery<AttendanceDocument>,
   update: UpdateQuery<AttendanceDocument>,

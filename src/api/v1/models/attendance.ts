@@ -1,10 +1,11 @@
 import mongoose from "mongoose";
 import AttendanceType from "../enums/attendanceType";
+import HolidayStatus from "../enums/holidayStatus";
 import convertEnumToArray from "../helpers/enumArray";
 
 interface SingleAttendanceDocument {
   employeeId: string;
-  approved: Boolean;
+  approved: string;
   time: Date;
 }
 
@@ -18,7 +19,11 @@ export interface AttendanceDocument extends mongoose.Document {
 const SingleAttendanceSchema = new mongoose.Schema(
   {
     employeeId: { type: String, required: true },
-    approved: { type: Boolean, default: false },
+    approved: {
+      type: String,
+      default: HolidayStatus.Pending,
+      enum: convertEnumToArray(HolidayStatus),
+    },
     time: { type: Date, required: true },
   },
   { _id: false }

@@ -25,6 +25,9 @@ EmployeeRouter.post("/create/task", [validateRequest_1.default(admin_2.createTas
 EmployeeRouter.put("/complete/project", [auth_1.default(employee_2.default)], employee_1.completeProjectHandler);
 EmployeeRouter.put("/decline/project", [auth_1.default(employee_2.default)], employee_1.declinedProjectHandler);
 EmployeeRouter.put("/update/project/status", [auth_1.default(employee_2.default)], admin_1.updateStatusHandler);
+EmployeeRouter.put("/complete/task", [auth_1.default(employee_2.default)], employee_1.completeTaskHandler);
+EmployeeRouter.put("/decline/task", [auth_1.default(employee_2.default)], employee_1.declinedTaskHandler);
+EmployeeRouter.put("/update/task/status", [auth_1.default(employee_2.default)], employee_1.updateTaskStatusHandler);
 EmployeeRouter.put("/assign/task", [validateRequest_1.default(admin_2.assignTaskToEmployeeSchema), auth_1.default(employee_2.default)], employee_1.assignTaskToEmployeeHandler);
 EmployeeRouter.post("/add/comment", [validateRequest_1.default(admin_2.addCommentSchema), auth_1.default(employee_2.default)], employee_1.addCommentHandler);
 EmployeeRouter.post("/logout", employee_1.logoutEmployeeHandler);

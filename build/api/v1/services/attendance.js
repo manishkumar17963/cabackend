@@ -39,7 +39,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.aggregateAttendance = exports.deletePost = exports.findAndUpdateAttendance = exports.findAttendance = exports.createAttendance = void 0;
+exports.aggregateAttendance = exports.deletePost = exports.findAndUpdateAttendance = exports.findAllAttendance = exports.findAttendance = exports.createAttendance = void 0;
 var attendance_1 = __importDefault(require("../models/attendance"));
 function createAttendance(input) {
     return __awaiter(this, void 0, void 0, function () {
@@ -59,6 +59,16 @@ function findAttendance(query, select, options) {
     });
 }
 exports.findAttendance = findAttendance;
+function findAllAttendance(query, select, options) {
+    if (select === void 0) { select = {}; }
+    if (options === void 0) { options = {}; }
+    return __awaiter(this, void 0, void 0, function () {
+        return __generator(this, function (_a) {
+            return [2 /*return*/, attendance_1.default.find(query, select, options)];
+        });
+    });
+}
+exports.findAllAttendance = findAllAttendance;
 function findAndUpdateAttendance(query, update, options) {
     return __awaiter(this, void 0, void 0, function () {
         return __generator(this, function (_a) {

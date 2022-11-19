@@ -7,19 +7,26 @@ import {
 } from "../../../socket/serverStore";
 import AttendanceType from "../enums/attendanceType";
 import ConversationType from "../enums/conversationType";
+import HolidayStatus from "../enums/holidayStatus";
 import MeetingStatus from "../enums/meetingStatus";
 import SendBy from "../enums/sendBy";
 import TaskStatus from "../enums/taskStatus";
 import { socketError } from "../helpers/checkErrors";
 import CustomError from "../helpers/customError";
+import Attendance from "../models/attendance";
 import Comment from "../models/comment";
 import Employee, { EmployeeDocument } from "../models/employee";
+import Meeting from "../models/meeting";
 import Message from "../models/message.model";
 import Task from "../models/task.model";
 import { aggregateAdmin } from "../services/admin";
 import { findAttendance } from "../services/attendance";
 import { aggregateBranch } from "../services/branch.service";
-import { aggregateCustomer } from "../services/customer";
+import {
+  aggregateCustomer,
+  findAllCustomer,
+  findCustomer,
+} from "../services/customer";
 import {
   aggregateEmployee,
   findAndUpdateEmployee,
@@ -46,8 +53,16 @@ export function employeeSocketHandler(socket: Socket) {
       await employeeProjectHandler(socket, data);
     });
 
+    socket.on("employee-dashboard", async (data) => {
+      await dashboardHandler(socket, data);
+    });
+
     socket.on("confirm-meeting", async (data) => {
       await confirmMeetingHandler(socket, data);
+    });
+
+    socket.on("employee-mark-attendance", async (data, callback) => {
+      await markAttendanceHandler(socket, data, callback);
     });
 
     socket.on("employee-task-detail", async (data) => {
@@ -123,6 +138,156 @@ export function employeeSocketHandler(socket: Socket) {
   }
 }
 
+async function markAttendanceHandler(
+  socket: Socket,
+  data: any,
+  callback: (data: any) => void
+) {
+  try {
+    //@ts-ignore
+    const user = socket.user as EmployeeDocument;
+    const attendance = await findAttendance({ date: moment().startOf("day") });
+    if (attendance) {
+      if (attendance.attendanceType != AttendanceType.Normal) {
+        callback({ status: 400, message: "Oops today is holiday" });
+        return;
+      } else if (!attendance.open) {
+        callback({ status: 400, message: "Oops attendance closed" });
+        return;
+      }
+    } else {
+      callback({ status: 400, message: "Oops attendance not started yet " });
+      return;
+    }
+
+    const value = attendance.attendance.find(
+      (value) => value.employeeId == user._id
+    );
+    if (!value) {
+      attendance.attendance.push({
+        employeeId: user._id,
+        approved: HolidayStatus.Pending,
+        time: moment().toDate(),
+      });
+      callback({
+        status: 200,
+        message: `your attendance is marked successfully`,
+      });
+      await attendance.save();
+    } else {
+      callback({
+        status: 400,
+        message: `your attendance is already ${value.approved}`,
+      });
+      return;
+    }
+  } catch (err) {
+    console.log(err);
+  }
+}
+
+async function dashboardHandler(socket: Socket, data: any) {
+  try {
+    //@ts-ignore
+    const user = socket.user as EmployeeDocument;
+    const allProjects = await aggregateProject([
+      { $match: { primaryEmployee: user._id } },
+      { $group: { _id: "$status", count: { $count: {} } } },
+    ]);
+    const projects: { [key: string]: number } = {};
+    allProjects.forEach((value) => {
+      projects[value._id] = value.count;
+    });
+
+    const meetings = await Meeting.find({
+      meetingStartTime: {
+        $gte: moment().startOf("day").toDate(),
+        $lt: moment().startOf("day").add(1, "day").toDate(),
+      },
+    }).sort({ meetingStartTime: 1 });
+
+    const attendance = await findAttendance({
+      date: moment().startOf("day").toDate(),
+    });
+    const holiday = await findEmployee(
+      {
+        _id: user._id,
+        holidayRequest: {
+          $elemMatch: {
+            date: moment().startOf("day"),
+            status: HolidayStatus.Approved,
+          },
+        },
+      },
+      { "holidayRequest.$": 1 }
+    );
+    let value: any;
+
+    let attendanceType: AttendanceType;
+    if (!holiday && attendance) {
+      if (attendance.attendanceType == AttendanceType.Normal) {
+        value = attendance.attendance.find(
+          (value) => value.employeeId == user._id
+        );
+      }
+      attendanceType = attendance.attendanceType;
+    }
+
+    const customers = await findAllCustomer(
+      { assignedEmployee: user._id },
+      { profileUri: 1, companyName: 1, number: 1, firstname: 1, lastname: 1 }
+    );
+
+    const holidays = await aggregateEmployee([
+      { $match: { _id: user._id } },
+      { $unwind: "$holidayRequest" },
+      {
+        $match: {
+          "holidayRequest.date": {
+            $gte: moment().startOf("month").toDate(),
+            $lte: moment().startOf("month").add(1, "month").toDate(),
+          },
+        },
+      },
+      { $group: { _id: "$holidayRequest.status", count: { $count: {} } } },
+    ]);
+    console.log("holidays", holidays);
+    let monthly: { [key: string]: number } = {};
+
+    holidays.forEach((value) => {
+      monthly[value._id] = value.count;
+    });
+
+    const monthlyAttendance = await Attendance.countDocuments({
+      date: {
+        $gte: moment().startOf("month"),
+        $lte: moment().startOf("month").add(1, "month"),
+      },
+      attendance: {
+        $elemMatch: {
+          approved: HolidayStatus.Approved,
+          employeeId: user._id,
+        },
+      },
+    });
+
+    monthly.attendance = monthlyAttendance;
+
+    socket.emit("employee-dashboard-result", {
+      meetings,
+      holiday: holiday,
+      monthly: monthly,
+      customers,
+      attendance: value,
+      //@ts-ignore
+      attendanceType,
+      projects: projects,
+    });
+  } catch (err) {
+    console.log("err", err);
+  }
+}
+
 async function confirmMeetingHandler(
   socket: Socket,
   data: { meetingId: string }
@@ -178,7 +343,13 @@ async function employeeMeetingDateHandler(
                 },
                 $expr: {
                   $or: [
-                    { $eq: ["$employeeId", user._id] },
+                    {
+                      $and: [
+                        { $eq: ["$employeeId", user._id] },
+                        { $eq: ["$$projectId", "$projectId"] },
+                      ],
+                    },
+
                     {
                       $and: [
                         { $eq: ["$$projectId", "$projectId"] },
@@ -988,7 +1159,7 @@ async function addAttendanceHandler(socket: Socket, data: any) {
           attendance.attendance.push({
             employeeId: user._id,
             time: new Date(),
-            approved: false,
+            approved: HolidayStatus.Pending,
           });
           await attendance.save();
         }

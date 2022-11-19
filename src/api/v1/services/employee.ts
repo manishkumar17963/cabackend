@@ -18,6 +18,14 @@ export async function findEmployee(
   return Employee.findOne(query, select, options);
 }
 
+export async function findAllEmployee(
+  query: FilterQuery<EmployeeDocument>,
+  select: { [key: string]: number } = {},
+  options: QueryOptions = {}
+) {
+  return Employee.find(query, select, options);
+}
+
 export async function validatePassword({
   number,
   password,

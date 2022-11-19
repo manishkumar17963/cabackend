@@ -134,7 +134,7 @@ export async function completeProjectHandler(req: Request, res: Response) {
     const user = req.user! as EmployeeDocument;
     const project = await findProject({
       _id: req.body.projectId,
-
+      clientApproved: true,
       status: { $nin: [TaskStatus.Declined] },
       paymentStatus: { $ne: PaymentStatus.Paid },
     });
@@ -172,6 +172,7 @@ export async function declinedProjectHandler(req: Request, res: Response) {
     const task = await findAndUpdateProject(
       {
         _id: req.body.projectId,
+        clientApproved: true,
         primaryEmployee: user._id,
         status: { $nin: [TaskStatus.Completed, TaskStatus.Declined] },
       },
@@ -198,6 +199,7 @@ export async function updateStatusHandler(req: Request, res: Response) {
     const user = req.user! as EmployeeDocument;
     const project = await findProject({
       _id: req.body.projectId,
+      clientApproved: true,
       status: { $nin: [TaskStatus.Completed, TaskStatus.Declined] },
     });
     console.log("project", project);
@@ -222,6 +224,79 @@ export async function updateStatusHandler(req: Request, res: Response) {
 
     await updateProjectStatusHandler(project, req.body);
     res.send({ message: `project with ${project.description} status updated` });
+  } catch (error) {
+    checkError(error, res);
+  }
+}
+
+export async function completeTaskHandler(req: Request, res: Response) {
+  try {
+    const task = await findTask({
+      _id: req.body.taskId,
+      status: { $nin: [TaskStatus.Declined] },
+    });
+    if (!task) {
+      throw new CustomError(
+        "Bad Request",
+        404,
+        "No such project found or project already declined"
+      );
+    }
+
+    task.status = TaskStatus.Completed;
+
+    await task.save();
+
+    res.send({ message: `project ${task.name} is completed` });
+  } catch (error) {
+    checkError(error, res);
+  }
+}
+
+export async function declinedTaskHandler(req: Request, res: Response) {
+  try {
+    const task = await findAndUpdateTask(
+      {
+        _id: req.body.taskId,
+        status: { $nin: [TaskStatus.Completed, TaskStatus.Declined] },
+      },
+      { $set: { status: TaskStatus.Declined } },
+      { new: true }
+    );
+    if (!task) {
+      throw new CustomError(
+        "Bad Request",
+        404,
+        "No such task found or task completed or task already declined"
+      );
+    }
+
+    res.send({ message: `task with ${task.name} declined by you` });
+  } catch (error) {
+    checkError(error, res);
+  }
+}
+
+export async function updateTaskStatusHandler(req: Request, res: Response) {
+  try {
+    const task = await findAndUpdateTask(
+      {
+        _id: req.body.taskId,
+        status: { $nin: [TaskStatus.Completed, TaskStatus.Declined] },
+      },
+      { $set: { status: req.body.status } },
+      { new: true }
+    );
+
+    if (!task) {
+      throw new CustomError(
+        "Bad Request",
+        404,
+        "No such project found or project completed or project already declined"
+      );
+    }
+
+    res.send({ message: `task with ${task.name} status updated` });
   } catch (error) {
     checkError(error, res);
   }
@@ -464,7 +539,7 @@ export async function addAttendanceHandler(req: Request, res: Response) {
           attendance.attendance.push({
             employeeId: user._id,
             time: new Date(),
-            approved: false,
+            approved: HolidayStatus.Pending,
           });
           await attendance.save();
         }
@@ -493,6 +568,9 @@ export async function addHolidayRequestHandler(req: Request, res: Response) {
     const user = req.user! as EmployeeDocument;
     const { date, reason, type }: { date: Date; reason: string; type: string } =
       req.body;
+    if (moment(date).isBefore(moment())) {
+      throw new CustomError("Bad Request", 404, "Date already passed");
+    }
     const holiday = await findHoliday({
       start: { $lte: date },
       end: { $gt: date },
@@ -1216,29 +1294,6 @@ export async function assignTaskToEmployeeHandler(req: Request, res: Response) {
         task.description ?? "nothing"
       } assigned to employee with name ${employee.username}`,
     });
-  } catch (error) {
-    checkError(error, res);
-  }
-}
-
-export async function declinedTaskHandler(req: Request, res: Response) {
-  try {
-    const task = await findAndUpdateTask(
-      {
-        _id: req.params.taskId,
-        status: { $nin: [TaskStatus.Completed, TaskStatus.Declined] },
-      },
-      { $set: { status: TaskStatus.Declined } },
-      { new: true }
-    );
-    if (!task) {
-      throw new CustomError(
-        "Bad Request",
-        404,
-        "No such task found or task completed or task already declined"
-      );
-    }
-    res.send({ message: `task with ${task.description} declined by you` });
   } catch (error) {
     checkError(error, res);
   }

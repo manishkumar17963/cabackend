@@ -14,6 +14,7 @@ import {
   changePrimaryEmployeeHandler,
   completeMeetingHandler,
   completeProjectHandler,
+  completeTaskHandler,
   createAdminHandler,
   createBranchHandler,
   createProjectForCustomerHandler,
@@ -39,6 +40,7 @@ import {
   updateProjectHandler,
   updateStatusHandler,
   updateTaskHandler,
+  updateTaskStatusHandler,
   verifyAdminHandler,
   verifyForgotOtpHandler,
 } from "../controllers/admin";
@@ -166,6 +168,16 @@ AdminRouter.put(
   "/update/project/status",
   [authRequired(Admin)],
   updateStatusHandler
+);
+
+AdminRouter.put("/complete/task", [authRequired(Admin)], completeTaskHandler);
+
+AdminRouter.put("/decline/task", [authRequired(Admin)], declinedTaskHandler);
+
+AdminRouter.put(
+  "/update/task/status",
+  [authRequired(Admin)],
+  updateTaskStatusHandler
 );
 
 AdminRouter.post(
