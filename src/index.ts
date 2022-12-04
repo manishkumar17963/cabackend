@@ -43,10 +43,10 @@ const start = async () => {
     app.use("/customer", CustomerRouter);
     app.use("/employee", EmployeeRouter);
     app.use(
-      "/.well-known/pki-validation/E707771D51DECCD5DC902E7A44ADDB85.txt",
+      "/.well-known/pki-validation/F1824902481E679F4E74376786FCE6EF.txt",
       (req: Request, res: Response) => {
         res.sendFile(
-          "/home/ec2-user/development/cabackend/E707771D51DECCD5DC902E7A44ADDB85.txt"
+          "/home/ec2-user/development/cabackend/F1824902481E679F4E74376786FCE6EF.txt"
         );
       }
     );

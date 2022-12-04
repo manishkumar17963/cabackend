@@ -1,6 +1,6 @@
 //denyholiday descrease holiday count if holiday previously approved
 
-ssh -i "~/development/projects/techCompany/cadashboard/backendKey.pem" ec2-user@ec2-13-233-54-181.ap-south-1.compute.amazonaws.com
+ssh -i "~/development/projects/techCompany/cadashboard/backendKey.pem" ec2-user@ec2-13-233-205-33.ap-south-1.compute.amazonaws.com
 
 sudo systemctl daemon-reload 
 sudo systemctl restart cabackend.service
