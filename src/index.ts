@@ -42,7 +42,7 @@ const start = async () => {
     app.use("/admin", AdminRouter);
     app.use("/customer", CustomerRouter);
     app.use("/employee", EmployeeRouter);
-    app.use(
+    app.get(
       "/.well-known/pki-validation/3CB225326F3A551502766193BFAA35BA.txt",
       (req: Request, res: Response) => {
         res.sendFile(
