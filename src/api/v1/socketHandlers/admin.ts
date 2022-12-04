@@ -920,7 +920,12 @@ export async function startAttendanceHandler(
         });
       }
     }
-    console.log("hello date", moment().startOf("day").toDate());
+    console.log(
+      "hello date",
+      moment().startOf("day").toDate(),
+      moment().toDate(),
+      moment().utcOffset()
+    );
     await createAttendance({
       date: moment().startOf("day").toDate(),
       open: true,

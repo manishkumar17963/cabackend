@@ -1300,7 +1300,7 @@ function startAttendanceHandler(socket, data, callback) {
                                 })];
                         }
                     }
-                    console.log("hello date", moment_1.default().startOf("day").toDate());
+                    console.log("hello date", moment_1.default().startOf("day").toDate(), moment_1.default().toDate(), moment_1.default().utcOffset());
                     return [4 /*yield*/, attendance_1.createAttendance({
                             date: moment_1.default().startOf("day").toDate(),
                             open: true,
