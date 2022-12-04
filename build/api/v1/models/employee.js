@@ -55,7 +55,6 @@ exports.SickLeaveCategorySchema = new mongoose_1.default.Schema({
         enum: enumArray_1.default(holidayType_1.default),
     },
     value: { type: Number, required: true },
-    completed: { type: Number, required: true },
 }, { _id: false, timestamps: false });
 var SickLeaveSchema = new mongoose_1.default.Schema({
     date: { type: Date, required: true },

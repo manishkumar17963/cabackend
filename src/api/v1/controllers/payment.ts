@@ -63,6 +63,7 @@ async function callbackHandler(
   handlerFunction: (
     req: Request,
     session: ClientSession,
+    amount: number,
     transactionId?: string
   ) => void
 ) {
@@ -124,7 +125,13 @@ async function callbackHandler(
               console.log("result", result);
               if (result.STATUS === "TXN_SUCCESS") {
                 //store in db
-                const order = await handlerFunction(req, session, result.TXNID);
+                const order = await handlerFunction(
+                  req,
+                  session,
+
+                  result.TXNAMOUNT,
+                  result.TXNID
+                );
                 await session.commitTransaction();
 
                 res.redirect(`${process.env.WEB_URL}/communication`);
@@ -159,7 +166,7 @@ export async function invoicePaymentHandler(req: Request, res: Response) {
         paymentStatus: PaymentStatus.Unpaid,
         customerId: user._id,
       },
-      { amount: 1, services: 1 }
+      { amount: 1, services: 1, cgst: 1, sgst: 1 }
     );
     if (!invoice) {
       throw new CustomError(
@@ -172,11 +179,20 @@ export async function invoicePaymentHandler(req: Request, res: Response) {
       (total, value) => total + value.price,
       0
     );
+    if (req.body.tds > amount) {
+      throw new CustomError(
+        "Bad request",
+        404,
+        "tds amount can not be greater than amount"
+      );
+    }
     await paymentHandler(
       req,
       res,
 
-      Math.ceil(amount ?? 0)
+      Math.ceil(
+        amount - (req.body.tds ?? 0) + (invoice.cgst ?? 0) + (invoice.sgst ?? 0)
+      )
     );
   } catch (err) {
     checkError(err, res);
@@ -193,22 +209,19 @@ export async function invoicePaymentCallbackHandler(
 export async function invoicePaymentSuccessHandler(
   req: Request,
   session: ClientSession,
+  amount: number,
   transactionId?: string
 ) {
-  const invoice = await findAndUpdateInvoice(
+  const invoice = await findInvoice(
     {
       _id: req.params.invoiceId,
       paymentStatus: PaymentStatus.Unpaid,
       customerId: req.params.customerId,
     },
-    {
-      $set: {
-        actualPaymentDate: new Date(),
-        paymentStatus: PaymentStatus.Paid,
-      },
-    },
+    {},
     { session }
   );
+
   if (!invoice) {
     throw new CustomError(
       "Bad request",
@@ -216,6 +229,11 @@ export async function invoicePaymentSuccessHandler(
       "Invoice already paid or no such invoice found"
     );
   }
+  invoice.actualPaymentDate = new Date();
+  invoice.paymentStatus = PaymentStatus.Paid;
+  invoice.tds =
+    invoice.amount + (invoice.cgst ?? 0) + (invoice.sgst ?? 0) - amount;
+  await invoice.save();
   const project = await findProject({
     _id: invoice.projectId,
     status: TaskStatus.Completed,
@@ -229,6 +247,7 @@ export async function invoicePaymentSuccessHandler(
       "No such project found or payment not initiated"
     );
   }
+
   project.paymentStatus = PaymentStatus.Paid;
   project.paymentMethod = PaymentMethod.Online;
   project.transactionId = transactionId;

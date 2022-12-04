@@ -7,6 +7,11 @@ var mongoose_1 = __importDefault(require("mongoose"));
 var priority_1 = __importDefault(require("../enums/priority"));
 var taskStatus_1 = __importDefault(require("../enums/taskStatus"));
 var enumArray_1 = __importDefault(require("../helpers/enumArray"));
+var TimeLogSchema = new mongoose_1.default.Schema({
+    startTime: { type: Date, required: true },
+    endTime: { type: Date },
+    employeeId: { type: String },
+});
 var PreviousEmployeeSchema = new mongoose_1.default.Schema({
     assignedDate: { type: Date, required: true },
     removedDate: { type: Date },
@@ -41,6 +46,7 @@ var TaskSchema = new mongoose_1.default.Schema({
         enum: enumArray_1.default(taskStatus_1.default),
         default: taskStatus_1.default.Initiated,
     },
+    timeLog: [TimeLogSchema],
     priority: {
         type: String,
         enum: enumArray_1.default(priority_1.default),

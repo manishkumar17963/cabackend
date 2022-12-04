@@ -18,6 +18,14 @@ export async function findTask(
   return Task.findOne(query, select, options);
 }
 
+export async function findAllTask(
+  query: FilterQuery<TaskDocument>,
+  select: { [key: string]: number } = {},
+  options: QueryOptions = {}
+) {
+  return Task.find(query, select, options);
+}
+
 export async function findAndUpdateTask(
   query: FilterQuery<TaskDocument>,
   update: UpdateQuery<TaskDocument>,

@@ -29,3 +29,4 @@ web_modules/
 .env.production
 
 keys.txt
+todo.txt

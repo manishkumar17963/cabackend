@@ -1,4 +1,6 @@
 import mongoose from "mongoose";
+import StateList from "../enums/stateList.enum";
+import convertEnumToArray from "../helpers/enumArray";
 
 export interface BranchInput {
   name: string;
@@ -6,6 +8,8 @@ export interface BranchInput {
   invoiceNo: number;
   quotationNo: number;
   address: string;
+  state: StateList;
+  gstNumber: string;
   number: string;
   email: string;
 }
@@ -20,6 +24,8 @@ const BranchSchema = new mongoose.Schema({
     lowercase: true,
     alias: "name",
   },
+  gstNumber: { type: String, required: true },
+  state: { type: String, required: true, enum: convertEnumToArray(StateList) },
   address: { type: String, required: true },
   email: { type: String, required: true },
   number: { type: String, required: true },

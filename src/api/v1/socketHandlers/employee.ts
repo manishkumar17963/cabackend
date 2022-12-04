@@ -40,7 +40,7 @@ import {
 } from "../services/meeting";
 import { aggregateMessage } from "../services/message.Service";
 import { aggregateProject, findProject } from "../services/project.Service";
-import { aggregateTask } from "../services/task";
+import { aggregateTask, findTask } from "../services/task";
 import { aggregateTemplate } from "../services/template.service";
 
 export function employeeSocketHandler(socket: Socket) {
@@ -51,6 +51,14 @@ export function employeeSocketHandler(socket: Socket) {
     });
     socket.on("employee-project", async (data) => {
       await employeeProjectHandler(socket, data);
+    });
+
+    socket.on("time-log", async (data, callback) => {
+      await employeeTaskLogHandler(socket, data, callback);
+    });
+
+    socket.on("start-task-employee", async (data, callback) => {
+      await taskActionHandler(socket, data, callback);
     });
 
     socket.on("employee-dashboard", async (data) => {
@@ -136,6 +144,93 @@ export function employeeSocketHandler(socket: Socket) {
       await employeeMeetingDateHandler(socket, data);
     });
   }
+}
+
+async function employeeTaskLogHandler(
+  socket: Socket,
+  data: { taskId: string },
+  callback: (data: any) => void
+) {
+  try {
+    const tasks = await aggregateTask([
+      {
+        $match: {
+          _id: new mongoose.Types.ObjectId(data.taskId),
+        },
+      },
+      { $unwind: "$timeLog" },
+      {
+        $lookup: {
+          from: "employees",
+          let: { employeeId: "$timeLog.employeeId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$_id", "$$employeeId"],
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 1,
+                username: 1,
+                profileUri: 1,
+                number: 1,
+              },
+            },
+          ],
+          as: "employee",
+        },
+      },
+      { $unwind: "$employee" },
+      {
+        $replaceRoot: {
+          newRoot: {
+            $mergeObjects: [{ employee: "$employee" }, "$timeLog"],
+          },
+        },
+      },
+    ]);
+    callback({ status: 200, data: tasks });
+  } catch (err) {
+    //@ts-ignore
+    callback({ status: 400, message: error.message });
+  }
+}
+
+async function taskActionHandler(
+  socket: Socket,
+  data: { taskId: string },
+  callback: (data: any) => void
+) {
+  try {
+    //@ts-ignore
+    const user = socket.user as EmployeeDocument;
+    const tasks = await findTask({
+      assignedEmployee: user._id,
+      _id: data.taskId,
+    });
+    console.log("tasks", tasks, data);
+    if (!tasks) {
+      throw new CustomError("Bad Request", 404, "No such task found");
+    }
+
+    let timeLog = tasks?.timeLog[0];
+    if (!timeLog) {
+      tasks.timeLog = [{ startTime: moment().toDate(), employeeId: user._id }];
+    } else {
+      if (timeLog.endTime) {
+        tasks.timeLog = [
+          { startTime: moment().toDate(), employeeId: user._id },
+          ...tasks.timeLog,
+        ];
+      } else {
+        tasks.timeLog[0].endTime = moment().toDate();
+      }
+    }
+    await tasks.save();
+  } catch (err) {}
 }
 
 async function markAttendanceHandler(
@@ -965,7 +1060,9 @@ async function employeeTaskHandler(
           as: "primaryEmployee",
         },
       },
-      { $unwind: "$primaryEmployee" },
+      {
+        $unwind: { path: "$primaryEmployee", preserveNullAndEmptyArrays: true },
+      },
 
       {
         $lookup: {
@@ -1052,7 +1149,7 @@ async function employeeTaskHandler(
         },
       },
     ]);
-
+    console.log("projectDetail", projectDetail[0]);
     socket.emit("employee-task-result", {
       tasks,
       projectDetail: projectDetail[0],

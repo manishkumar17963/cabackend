@@ -39,7 +39,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.aggregateTask = exports.deletePost = exports.findAndUpdateTask = exports.findTask = exports.createTask = void 0;
+exports.aggregateTask = exports.deletePost = exports.findAndUpdateTask = exports.findAllTask = exports.findTask = exports.createTask = void 0;
 var task_model_1 = __importDefault(require("../models/task.model"));
 function createTask(input) {
     return __awaiter(this, void 0, void 0, function () {
@@ -59,6 +59,16 @@ function findTask(query, select, options) {
     });
 }
 exports.findTask = findTask;
+function findAllTask(query, select, options) {
+    if (select === void 0) { select = {}; }
+    if (options === void 0) { options = {}; }
+    return __awaiter(this, void 0, void 0, function () {
+        return __generator(this, function (_a) {
+            return [2 /*return*/, task_model_1.default.find(query, select, options)];
+        });
+    });
+}
+exports.findAllTask = findAllTask;
 function findAndUpdateTask(query, update, options) {
     return __awaiter(this, void 0, void 0, function () {
         return __generator(this, function (_a) {

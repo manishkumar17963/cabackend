@@ -1,1 +1,22 @@
 //denyholiday descrease holiday count if holiday previously approved
+
+ssh -i "~/development/projects/techCompany/cadashboard/backendKey.pem" ec2-user@ec2-13-233-54-181.ap-south-1.compute.amazonaws.com
+
+DB_URI="mongodb+srv://manish86:manish86@cluster0.cal8e.mongodb.net/srisudha?retryWrites=true&w=majority"
+PORT=4000
+CALLBACK_URL = "http://13.233.54.181/customer/callback"
+APP_ID="TEST250746f79be4d2a73088f098e5647052"
+SECRET_KEY="TEST836f0b5dbb842f526ca6b93c4266d3d1bf93c5ec"
+JWT_SECRET="awesomeDashboard"
+ACCESS_KEY_ID="AKIA44RLDOZ6JTA35JBW"
+SECRET_ACCESS_KEY="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"
+GOOGLELOCALITYURI="https://maps.googleapis.com/maps/api/geocode/json?sensor=false&result_type=locality&key=AIzaSyAoaZYHwECCzM7vqcAZYPiQCYhIO2M9RrM"
+GOOGLEDISTANCEURI="https://maps.googleapis.com/maps/api/distancematrix/json?units=imperial&key=AIzaSyAoaZYHwECCzM7vqcAZYPiQCYhIO2M9RrM"
+WEBPUSH_PRIVATEKEY="VQAIERPAphZMT1GW_WxQuEbFg518WT1JErr-UQGt8pY"
+AGORA_ID="c07065a8e821406da58c4f16c3bb2946"
+AGORA_CERTIFICATE="536c06d60bd94e49b4e0ab830b7b9b7f"
+MERCHANT_ID="BzZQWs26115545734507"
+MERCHANT_KEY="QT1qhQWdwsqj4@ZZ"
+MERCHANT_WEBSITE="WEBSTAGING"
+WEB_URL="http://localhost:4050"
+TXN_URL = "https://securegw-stage.paytm.in/order/process"

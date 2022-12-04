@@ -1,0 +1,41 @@
+enum StateList {
+  "Andhra Pradesh" = "andhra pradesh",
+  "Arunachal pradesh" = "arunachal pradesh",
+  "Assam" = "assam",
+  Bihar = "bihar",
+  Chandigarh = "chandigarh",
+  Chattisgarh = "chattisgarh",
+  "Daman and Diu" = "daman and diu",
+  Delhi = "delhi",
+
+  Goa = "goa",
+  Gujrat = "gujrat",
+  Haryana = "haryana",
+  "Himachal Pradesh" = "himachal pradesh",
+  "Jammu and Kashmir" = "jammu and kashmir",
+  "Jharkhand" = "jharkhand",
+  "Karnataka" = "karnataka",
+  Kerela = "kerela",
+  Ladakh = "ladakh",
+  "Madhya Pradesh" = "madhya pradesh",
+  Maharashtra = "maharashtra",
+  Manipur = "manipur",
+  Meghalaya = "meghalaya",
+  Mizoram = "mizoram",
+  Nagaland = "nagaland",
+  Odisha = "odisha",
+
+  Punjab = "punjab",
+  Puducherry = "pudducherry",
+  Rajasthan = "rajasthan",
+  Sikkim = "sikkim",
+  "Tamil Nadu" = "tamil nadu",
+  Telangana = "telangana",
+  Tripura = "tripura",
+  "Uttar Pradesh" = "uttar pradesh",
+
+  Uttrakhand = "uttrakhand",
+  "West Bengal" = "west bengal",
+}
+
+export default StateList;

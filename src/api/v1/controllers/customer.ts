@@ -50,6 +50,7 @@ import {
 } from "../socketHandlers/admin";
 import { AdminDocument } from "../models/admin";
 import { RtcRole, RtcTokenBuilder } from "agora-access-token";
+import getStateByGstNumber from "../helpers/gstWithState";
 
 export async function createCustomerHandler(req: Request, res: Response) {
   try {
@@ -61,8 +62,13 @@ export async function createCustomerHandler(req: Request, res: Response) {
       throw new CustomError("Bad Request", 404, "Number already exists");
     }
     await SendOtp(code, phone);
+    let state = req.body.state;
+    if (req.body.gstNumber) {
+      state = getStateByGstNumber(req.body.gstNumber);
+    }
     await createCustomer({
       ...req.body,
+      state,
       code,
       codeValid: true,
     });

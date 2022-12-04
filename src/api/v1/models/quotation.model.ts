@@ -15,6 +15,7 @@ export interface QuotationInput {
   customerId: mongoose.Types.ObjectId;
   quotationType: QuotationType;
   version: number;
+  gstNumber: string;
   runningVersion?: number;
   quotationRel: QuotationRel;
   templateId: string;
@@ -37,6 +38,7 @@ const QuotationSchema = new mongoose.Schema({
     required: true,
     ref: "Customer",
   },
+  gstNumber: { type: String, required: true },
   createdBy: { type: String, required: true, ref: "Admin" },
   projectId: { type: mongoose.Types.ObjectId, required: true, ref: "Project" },
   templateId: {

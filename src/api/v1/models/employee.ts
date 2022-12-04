@@ -22,7 +22,7 @@ export interface SickLeaveCategory extends SickLeaveCategoryWithout {
 
 export interface SickLeave {
   date: Date;
-  types: { [key: string]: SickLeaveCategory };
+  types: { [key: string]: SickLeaveCategoryWithout };
 }
 
 export interface EmployeeDocument extends mongoose.Document, BaseIdentifier {
@@ -51,7 +51,6 @@ export const SickLeaveCategorySchema = new mongoose.Schema(
       enum: convertEnumToArray(HolidayType),
     },
     value: { type: Number, required: true },
-    completed: { type: Number, required: true },
   },
   { _id: false, timestamps: false }
 );

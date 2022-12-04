@@ -1,7 +1,7 @@
+import { number } from "joi";
 import mongoose from "mongoose";
 import PaymentMethod from "../enums/paymentMethod";
 import PaymentStatus from "../enums/paymentStatus";
-import QuotationType from "../enums/quotationType.enum";
 import convertEnumToArray from "../helpers/enumArray";
 import { ServiceSchema } from "./common";
 export interface ServiceInput {
@@ -13,13 +13,18 @@ export interface InvoiceInput {
   projectId: mongoose.Types.ObjectId;
   customerId: mongoose.Types.ObjectId;
   projectName: string;
+  gstNumber: string;
   notes: string[];
   branchId: string;
   invoiceNo: string;
   expectedPaymentDate: Date;
   amount: number;
   paymentStatus: PaymentStatus;
-
+  cgst: number;
+  taxPercentage: number;
+  sameCity: boolean;
+  sgst: number;
+  tds?: number;
   createdBy: string;
   services: ServiceInput[];
 }
@@ -32,6 +37,7 @@ export interface InvoiceDocument extends mongoose.Document, InvoiceInput {
 const InvoiceSchema = new mongoose.Schema({
   createdBy: { type: String, required: true, ref: "Admin" },
   projectId: { type: mongoose.Types.ObjectId, required: true, ref: "Project" },
+  gstNumber: { type: String, required: true },
   projectName: { type: String, required: true },
   paymentMethod: { enum: convertEnumToArray(PaymentMethod), type: String },
   transactionId: String,
@@ -41,6 +47,11 @@ const InvoiceSchema = new mongoose.Schema({
     required: true,
     ref: "Customer",
   },
+  sameCity: { type: Boolean, required: true },
+  taxPercentage: { type: Number, required: true },
+  tds: { type: Number },
+  cgst: { type: Number, required: true },
+  sgst: { type: Number, required: true },
   actualPaymentDate: Date,
   paymentAmount: Number,
   paymentStatus: {

@@ -18,6 +18,14 @@ export async function findBranch(
   return Branch.findOne(query, select, options);
 }
 
+export async function findAllBranch(
+  query: FilterQuery<BranchDocument>,
+  select: { [key: string]: number } = {},
+  options: QueryOptions = {}
+) {
+  return Branch.find(query, select, options);
+}
+
 export async function findAndUpdateBranch(
   query: FilterQuery<BranchDocument>,
   update: UpdateQuery<BranchDocument>,

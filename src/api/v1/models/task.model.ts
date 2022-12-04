@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { mongo } from "mongoose";
 
 import Priority from "../enums/priority";
 
@@ -8,6 +8,7 @@ import { CommentDocument } from "./comment";
 
 export interface TaskInput {
   assignedEmployee?: string;
+  timeLog: ITimeLog[];
   customerId: mongoose.Types.ObjectId;
   description: string;
   name: string;
@@ -16,6 +17,12 @@ export interface TaskInput {
   projectId: mongoose.Types.ObjectId;
   status: ProjectStatus;
   priority: Priority;
+}
+
+export interface ITimeLog {
+  startTime: Date;
+  endTime?: Date;
+  employeeId: string;
 }
 
 export interface PreviousEmployee {
@@ -31,6 +38,12 @@ export interface PreviousEmployee {
 export interface TaskDocument extends mongoose.Document, TaskInput {
   comments: (mongoose.Types.ObjectId | CommentDocument)[];
 }
+
+var TimeLogSchema = new mongoose.Schema({
+  startTime: { type: Date, required: true },
+  endTime: { type: Date },
+  employeeId: { type: String },
+});
 
 var PreviousEmployeeSchema = new mongoose.Schema({
   assignedDate: { type: Date, required: true },
@@ -70,6 +83,7 @@ var TaskSchema = new mongoose.Schema(
       enum: convertEnumToArray(ProjectStatus),
       default: ProjectStatus.Initiated,
     },
+    timeLog: [TimeLogSchema],
 
     priority: {
       type: String,

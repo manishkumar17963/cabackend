@@ -15,6 +15,7 @@ var QuotationSchema = new mongoose_1.default.Schema({
         required: true,
         ref: "Customer",
     },
+    gstNumber: { type: String, required: true },
     createdBy: { type: String, required: true, ref: "Admin" },
     projectId: { type: mongoose_1.default.Types.ObjectId, required: true, ref: "Project" },
     templateId: {

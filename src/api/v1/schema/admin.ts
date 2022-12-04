@@ -228,6 +228,7 @@ export const addTemplateSchema = object({
 });
 export const addBranchSchema = object({
   body: object({
+    gstNumber: string().required(),
     name: string().required(),
     appendId: string().required(),
     invoiceNo: number().required(),

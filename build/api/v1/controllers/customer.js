@@ -82,9 +82,10 @@ var conversation_model_1 = __importDefault(require("../models/conversation.model
 var conversationType_1 = __importDefault(require("../enums/conversationType"));
 var admin_2 = require("../socketHandlers/admin");
 var agora_access_token_1 = require("agora-access-token");
+var gstWithState_1 = __importDefault(require("../helpers/gstWithState"));
 function createCustomerHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var code, phone, customer, err_1;
+        var code, phone, customer, state, err_1;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -100,7 +101,12 @@ function createCustomerHandler(req, res) {
                     return [4 /*yield*/, sendOtp_1.SendOtp(code, phone)];
                 case 2:
                     _a.sent();
-                    return [4 /*yield*/, customer_1.createCustomer(__assign(__assign({}, req.body), { code: code, codeValid: true }))];
+                    state = req.body.state;
+                    if (req.body.gstNumber) {
+                        state = gstWithState_1.default(req.body.gstNumber);
+                    }
+                    return [4 /*yield*/, customer_1.createCustomer(__assign(__assign({}, req.body), { state: state,
+                            code: code, codeValid: true }))];
                 case 3:
                     _a.sent();
                     res.status(201).send({

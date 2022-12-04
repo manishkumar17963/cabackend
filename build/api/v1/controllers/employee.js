@@ -288,7 +288,7 @@ function updateStatusHandler(req, res) {
 exports.updateStatusHandler = updateStatusHandler;
 function completeTaskHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var task, error_5;
+        var task, timeLog, error_5;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -301,6 +301,10 @@ function completeTaskHandler(req, res) {
                     task = _a.sent();
                     if (!task) {
                         throw new customError_1.default("Bad Request", 404, "No such project found or project already declined");
+                    }
+                    timeLog = task.timeLog[0];
+                    if (timeLog && !timeLog.endTime) {
+                        task.timeLog[0].endTime = moment_1.default().toDate();
                     }
                     task.status = taskStatus_1.default.Completed;
                     return [4 /*yield*/, task.save()];
@@ -320,7 +324,7 @@ function completeTaskHandler(req, res) {
 exports.completeTaskHandler = completeTaskHandler;
 function declinedTaskHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var task, error_6;
+        var task, timeLog, error_6;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -333,6 +337,10 @@ function declinedTaskHandler(req, res) {
                     task = _a.sent();
                     if (!task) {
                         throw new customError_1.default("Bad Request", 404, "No such task found or task completed or task already declined");
+                    }
+                    timeLog = task.timeLog[0];
+                    if (timeLog && !timeLog.endTime) {
+                        task.timeLog[0].endTime = moment_1.default().toDate();
                     }
                     res.send({ message: "task with " + task.name + " declined by you" });
                     return [3 /*break*/, 3];
@@ -417,7 +425,7 @@ function verifyEmployeeHandler(req, res) {
                     iterator = (_f = (_e = setting === null || setting === void 0 ? void 0 : setting.types) === null || _e === void 0 ? void 0 : _e.entries()) !== null && _f !== void 0 ? _f : new Map().entries();
                     value = iterator.next().value;
                     while (value) {
-                        types[value[0]] = __assign(__assign({}, ((_h = (_g = value[1]) === null || _g === void 0 ? void 0 : _g.toJSON()) !== null && _h !== void 0 ? _h : value[1])), { completed: 0 });
+                        types[value[0]] = __assign({}, ((_h = (_g = value[1]) === null || _g === void 0 ? void 0 : _g.toJSON()) !== null && _h !== void 0 ? _h : value[1]));
                         value = iterator.next().value;
                     }
                     employee.sickLeave = setting ? [{ date: date.toDate(), types: types }] : [];
@@ -710,24 +718,25 @@ function addAttendanceHandler(req, res) {
 }
 exports.addAttendanceHandler = addAttendanceHandler;
 function addHolidayRequestHandler(req, res) {
-    var _a, _b;
+    var _a;
     return __awaiter(this, void 0, void 0, function () {
-        var user, _c, date_1, reason, type, holiday, requestIndex, value, leaves, error_9;
-        return __generator(this, function (_d) {
-            switch (_d.label) {
+        var user, _b, date_1, reason, type_1, sickId_1, holiday, requestIndex, value, leaves, totalLeaveTaken, error_9;
+        return __generator(this, function (_c) {
+            switch (_c.label) {
                 case 0:
-                    _d.trys.push([0, 3, , 4]);
+                    _c.trys.push([0, 3, , 4]);
                     user = req.user;
-                    _c = req.body, date_1 = _c.date, reason = _c.reason, type = _c.type;
+                    _b = req.body, date_1 = _b.date, reason = _b.reason, type_1 = _b.type, sickId_1 = _b.sickId;
                     if (moment_1.default(date_1).isBefore(moment_1.default())) {
                         throw new customError_1.default("Bad Request", 404, "Date already passed");
                     }
+                    console.log("date", date_1);
                     return [4 /*yield*/, holiday_1.findHoliday({
                             start: { $lte: date_1 },
                             end: { $gt: date_1 },
                         })];
                 case 1:
-                    holiday = _d.sent();
+                    holiday = _c.sent();
                     if (holiday) {
                         throw new customError_1.default("Bad Request", 400, "This day was holiday declared by owner");
                     }
@@ -735,7 +744,9 @@ function addHolidayRequestHandler(req, res) {
                         return moment_1.default(value.date).isSame(moment_1.default(date_1));
                     });
                     value = user.sickLeave.find(function (value, index) {
-                        if (moment_1.default(value.date).month() <= moment_1.default(date_1).month()) {
+                        if (moment_1.default(value.date)
+                            .startOf("month")
+                            .isSameOrBefore(moment_1.default(date_1).startOf("month"))) {
                             return true;
                         }
                         else {
@@ -747,31 +758,36 @@ function addHolidayRequestHandler(req, res) {
                     }
                     leaves = Object.fromEntries(value.types);
                     console.log("leaves", leaves);
-                    if (((_a = leaves[type]) === null || _a === void 0 ? void 0 : _a.value) - ((_b = leaves[type]) === null || _b === void 0 ? void 0 : _b.completed) <= 0) {
-                        throw new customError_1.default("Bad Request", 404, "No Remaining live found");
+                    totalLeaveTaken = user.holidayRequest.filter(function (value) {
+                        return value.sickId.equals(sickId_1) &&
+                            value.type == type_1 &&
+                            value.status == holidayStatus_1.default.Approved;
+                    });
+                    if (((_a = leaves[type_1]) === null || _a === void 0 ? void 0 : _a.value) - totalLeaveTaken.length <= 0) {
+                        throw new customError_1.default("Bad Request", 404, "No Remaining leave found");
                     }
                     if (requestIndex == -1) {
                         user.holidayRequest.push({
                             //@ts-ignore
                             sickId: value._id,
-                            date: date_1,
+                            date: new Date(date_1),
                             reason: reason,
                             status: holidayStatus_1.default.Pending,
                             holidayAdded: false,
                             holidayType: holidayType_1.default.Paid,
-                            type: type,
+                            type: type_1,
                         });
                     }
                     else {
-                        user.holidayRequest[requestIndex].reason = reason;
+                        throw new customError_1.default("Bad Request", 404, "Leave already added");
                     }
                     return [4 /*yield*/, user.save()];
                 case 2:
-                    _d.sent();
+                    _c.sent();
                     res.send({ message: "your holiday request has been sent to owner" });
                     return [3 /*break*/, 4];
                 case 3:
-                    error_9 = _d.sent();
+                    error_9 = _c.sent();
                     checkErrors_1.default(error_9, res);
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
@@ -1258,6 +1274,7 @@ function createTaskCustomerHandler(req, res) {
                         name: name_2,
                         assignedEmployee: employeeId_1,
                         priority: priority,
+                        timeLog: [],
                         previousEmployee: employeeId_1
                             ? [
                                 {
@@ -1295,33 +1312,33 @@ function createTaskCustomerHandler(req, res) {
 }
 exports.createTaskCustomerHandler = createTaskCustomerHandler;
 function assignTaskToEmployeeHandler(req, res) {
-    var _a;
+    var _a, _b;
     return __awaiter(this, void 0, void 0, function () {
-        var _b, taskId, employeeId_2, user, task_2, project, employee, conversation, index_1, date, index, error_16;
-        return __generator(this, function (_c) {
-            switch (_c.label) {
+        var _c, taskId, employeeId_2, user, task_2, project, employee, conversation, index_1, date, timeLog, index, error_16;
+        return __generator(this, function (_d) {
+            switch (_d.label) {
                 case 0:
-                    _c.trys.push([0, 7, , 8]);
-                    _b = req.body, taskId = _b.taskId, employeeId_2 = _b.employeeId;
+                    _d.trys.push([0, 7, , 8]);
+                    _c = req.body, taskId = _c.taskId, employeeId_2 = _c.employeeId;
                     user = req.user;
                     return [4 /*yield*/, task_1.findTask({
                             _id: taskId,
                             status: { $nin: [taskStatus_1.default.Completed, taskStatus_1.default.Declined] },
                         })];
                 case 1:
-                    task_2 = _c.sent();
+                    task_2 = _d.sent();
                     if (!task_2) {
                         throw new customError_1.default("Bad Request", 404, "No such task found or task completed or task declined");
                     }
                     return [4 /*yield*/, project_Service_1.findProject({ _id: task_2.projectId })];
                 case 2:
-                    project = _c.sent();
+                    project = _d.sent();
                     if (!project || project.primaryEmployee != user._id) {
                         throw new customError_1.default("Bad Request", 404, "No such project found or you are not authorized to create task");
                     }
                     return [4 /*yield*/, employee_1.findEmployee({ _id: employeeId_2 })];
                 case 3:
-                    employee = _c.sent();
+                    employee = _d.sent();
                     if (!employee) {
                         throw new customError_1.default("Bad Request", 404, "No such employee found");
                     }
@@ -1345,7 +1362,7 @@ function assignTaskToEmployeeHandler(req, res) {
                             },
                         }, {})];
                 case 4:
-                    conversation = _c.sent();
+                    conversation = _d.sent();
                     if (!conversation) {
                         throw new customError_1.default("Bad Request", 404, "No such conversation found");
                     }
@@ -1376,6 +1393,10 @@ function assignTaskToEmployeeHandler(req, res) {
                     }
                     task_2.assignedEmployee = employeeId_2;
                     task_2.status = taskStatus_1.default.Ongoing;
+                    timeLog = (_a = task_2 === null || task_2 === void 0 ? void 0 : task_2.timeLog) === null || _a === void 0 ? void 0 : _a[0];
+                    if (timeLog && !timeLog.endTime) {
+                        task_2.timeLog[0].endTime = moment_1.default().toDate();
+                    }
                     console.log("some new ", {
                         assignedBy: user._id,
                         assignedDate: date,
@@ -1408,16 +1429,16 @@ function assignTaskToEmployeeHandler(req, res) {
                     }
                     return [4 /*yield*/, project.save()];
                 case 5:
-                    _c.sent();
+                    _d.sent();
                     return [4 /*yield*/, task_2.save()];
                 case 6:
-                    _c.sent();
+                    _d.sent();
                     res.send({
-                        message: "task with name " + ((_a = task_2.description) !== null && _a !== void 0 ? _a : "nothing") + " assigned to employee with name " + employee.username,
+                        message: "task with name " + ((_b = task_2.description) !== null && _b !== void 0 ? _b : "nothing") + " assigned to employee with name " + employee.username,
                     });
                     return [3 /*break*/, 8];
                 case 7:
-                    error_16 = _c.sent();
+                    error_16 = _d.sent();
                     checkErrors_1.default(error_16, res);
                     return [3 /*break*/, 8];
                 case 8: return [2 /*return*/];

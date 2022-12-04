@@ -20,7 +20,12 @@ import {
   findEmployee,
   updateAllEmployee,
 } from "../services/employee";
-import { createTask, findAndUpdateTask, findTask } from "../services/task";
+import {
+  createTask,
+  findAllTask,
+  findAndUpdateTask,
+  findTask,
+} from "../services/task";
 import TaskStatus from "../enums/taskStatus";
 
 import moment from "moment";
@@ -53,7 +58,7 @@ import {
 import { SendOtp } from "../helpers/sendOtp";
 import { ProjectInput } from "../models/project.model";
 import BillingType from "../enums/billingType";
-import { TaskInput } from "../models/task.model";
+import Task, { TaskInput } from "../models/task.model";
 import {
   createQuotation,
   findQuotation,
@@ -66,7 +71,11 @@ import {
   ServiceInput,
 } from "../models/quotation.model";
 import QuotationType from "../enums/quotationType.enum";
-import { createBranch, findBranch } from "../services/branch.service";
+import {
+  createBranch,
+  findAndUpdateBranch,
+  findBranch,
+} from "../services/branch.service";
 import {
   createInvoice,
   findAndUpdateInvoice,
@@ -103,6 +112,7 @@ import {
   updateSocketProjectPrimaryEmployee,
 } from "../socketHandlers/admin";
 import EmployeeRole from "../enums/role";
+import getStateByGstNumber from "../helpers/gstWithState";
 
 export async function createAdminHandler(req: Request, res: Response) {
   try {
@@ -716,6 +726,7 @@ export async function createTaskCustomerHandler(req: Request, res: Response) {
       name: name,
       assignedEmployee: employeeId,
       priority: priority,
+      timeLog: [],
       previousEmployee: employeeId
         ? [
             {
@@ -826,6 +837,10 @@ export async function assignTaskToEmployeeHandler(req: Request, res: Response) {
     }
     task.assignedEmployee = employeeId;
     task.status = TaskStatus.Ongoing;
+    const timeLog = task?.timeLog?.[0];
+    if (timeLog && !timeLog.endTime) {
+      task.timeLog[0].endTime = moment().toDate();
+    }
     console.log("some new ", {
       assignedBy: user._id,
       assignedDate: date,
@@ -1016,6 +1031,7 @@ export async function completeProjectHandler(req: Request, res: Response) {
       status: { $nin: [TaskStatus.Declined] },
       paymentStatus: { $ne: PaymentStatus.Paid },
     });
+
     if (!project) {
       throw new CustomError(
         "Bad Request",
@@ -1023,6 +1039,22 @@ export async function completeProjectHandler(req: Request, res: Response) {
         "No such project found or project already declined"
       );
     }
+    const tasks = await Task.updateMany(
+      {
+        projectId: project._id,
+        status: { $nin: [TaskStatus.Declined] },
+      },
+      { $set: { status: TaskStatus.Completed } },
+      {}
+    );
+    await Task.updateMany(
+      {
+        projectId: project._id,
+        "timeLog.endTime": { $exists: false },
+      },
+      { $set: { "timeLog.$.endTime": moment().toDate() } },
+      {}
+    );
 
     const customer = await findCustomer({ _id: project.customerId });
 
@@ -1103,6 +1135,10 @@ export async function completeTaskHandler(req: Request, res: Response) {
     }
 
     task.status = TaskStatus.Completed;
+    const timeLog = task.timeLog[0];
+    if (timeLog && !timeLog.endTime) {
+      task.timeLog[0].endTime = moment().toDate();
+    }
 
     await task.save();
 
@@ -1129,7 +1165,11 @@ export async function declinedTaskHandler(req: Request, res: Response) {
         "No such task found or task completed or task already declined"
       );
     }
-
+    const timeLog = task.timeLog[0];
+    if (timeLog && !timeLog.endTime) {
+      task.timeLog[0].endTime = moment().toDate();
+    }
+    await task.save();
     res.send({ message: `task with ${task.name} declined by you` });
   } catch (error) {
     checkError(error, res);
@@ -1197,6 +1237,7 @@ export async function addQuotationHandler(req: Request, res: Response) {
     }
     const quotationInput: QuotationInput = {
       projectName: project.name,
+      gstNumber: branch.gstNumber,
       customerId: project.customerId,
       projectId: project._id,
       quotationType: QuotationType.Current,
@@ -1264,6 +1305,12 @@ export async function addInvoiceHandler(req: Request, res: Response) {
         "No Such project found or payment already paid"
       );
     }
+    const customer = await findCustomer({
+      _id: project?.customerId,
+    });
+    if (!customer) {
+      throw new CustomError("Bad Request", 404, "No Such Customer found");
+    }
     let invoice = await findInvoice({
       projectId: project._id,
       paymentStatus: PaymentStatus.Unpaid,
@@ -1277,6 +1324,8 @@ export async function addInvoiceHandler(req: Request, res: Response) {
       (total, value) => total + value.price,
       0
     );
+    const sameCity = branch.state == customer.state;
+    const tax = (amount * req.body.taxPercentage) / 100;
     if (invoice) {
       invoice.notes = req.body.notes;
       if (!invoice.branchId == branch._id) {
@@ -1285,6 +1334,11 @@ export async function addInvoiceHandler(req: Request, res: Response) {
         branch.invoiceNo += 1;
         await branch.save();
       }
+      invoice.cgst = sameCity ? tax / 2 : tax;
+      invoice.taxPercentage = req.body.taxPercentage;
+      invoice.sameCity = sameCity;
+      invoice.sgst = sameCity ? tax / 2 : 0;
+      invoice.gstNumber = branch.gstNumber;
       invoice.expectedPaymentDate = moment(
         req.body.expectedPaymentDate
       ).toDate();
@@ -1305,6 +1359,11 @@ export async function addInvoiceHandler(req: Request, res: Response) {
         paymentStatus: PaymentStatus.Unpaid,
         createdBy: req.user!._id.toString(),
         services: req.body.services,
+        cgst: sameCity ? tax / 2 : tax,
+        taxPercentage: req.body.taxPercentage,
+        sameCity: sameCity,
+        sgst: sameCity ? tax / 2 : 0,
+        gstNumber: branch.gstNumber,
       });
       branch.invoiceNo += 1;
       await branch.save();
@@ -1315,8 +1374,6 @@ export async function addInvoiceHandler(req: Request, res: Response) {
     project.expectedPaymentDate = moment(req.body.expectedPaymentDate).toDate();
     project.paymentAmount = amount;
     await project.save();
-
-    const customer = await findCustomer({ _id: project.customerId });
 
     let notificationMessage = `hey ${customer?.firstname},your project ${
       project.description
@@ -2048,8 +2105,24 @@ export async function createTemplateHandler(req: Request, res: Response) {
 
 export async function createBranchHandler(req: Request, res: Response) {
   try {
-    const branch = await createBranch(req.body);
+    const branch = await createBranch({
+      ...req.body,
+      state: getStateByGstNumber(req.body.gstNumber),
+    });
     addBranchHandler(branch);
+    res.send(branch);
+  } catch (err) {
+    checkError(err, res);
+  }
+}
+
+export async function updateBranchHandler(req: Request, res: Response) {
+  try {
+    const branch = await findAndUpdateBranch(
+      { _id: req.body.name },
+      { $set: req.body },
+      { new: true, upsert: true }
+    );
     res.send(branch);
   } catch (err) {
     checkError(err, res);

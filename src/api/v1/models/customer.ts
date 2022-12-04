@@ -15,7 +15,8 @@ export interface CustomerDocument extends mongoose.Document, BaseIdentifier {
   companyName: string;
   firstname: string;
   importantFiles: mongoose.Types.ObjectId[];
-
+  gstNumber?: string;
+  state: string;
   lastname?: string;
 
   profileUri?: string;
@@ -40,6 +41,8 @@ var CustomerSchema = new mongoose.Schema(
       required: true,
       enum: convertEnumToArray(CompanyType),
     },
+    gstNumber: { type: String },
+    state: { type: String, required: true },
     lastname: { type: String },
     assignedEmployee: String,
     companyLocation: { type: PointLocationSchema },

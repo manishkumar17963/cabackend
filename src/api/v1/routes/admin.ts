@@ -35,6 +35,7 @@ import {
   startAttendanceHandler,
   stopAttendanceHandler,
   toggleApprovalAttendanceHandler,
+  updateBranchHandler,
   updateEmployeeMeetingHandler,
   updateEmployeeSickHandler,
   updateProjectHandler,
@@ -272,6 +273,8 @@ AdminRouter.post(
   [validate(addBranchSchema), authRequired(Admin)],
   createBranchHandler
 );
+
+AdminRouter.post("/update/branch", [authRequired(Admin)], updateBranchHandler);
 
 AdminRouter.post(
   "/add/template",

@@ -50,6 +50,7 @@ AdminRouter.post("/start/attendance", auth_1.default(admin_2.default), admin_1.s
 AdminRouter.put("/stop/attendance/:attendanceId", auth_1.default(admin_2.default), admin_1.stopAttendanceHandler);
 AdminRouter.put("/toggle/attendance", [validateRequest_1.default(admin_3.toggleAttendanceSchema), auth_1.default(admin_2.default)], admin_1.toggleApprovalAttendanceHandler);
 AdminRouter.post("/add/branch", [validateRequest_1.default(admin_3.addBranchSchema), auth_1.default(admin_2.default)], admin_1.createBranchHandler);
+AdminRouter.post("/update/branch", [auth_1.default(admin_2.default)], admin_1.updateBranchHandler);
 AdminRouter.post("/add/template", [validateRequest_1.default(admin_3.addTemplateSchema), auth_1.default(admin_2.default)], admin_1.createTemplateHandler);
 AdminRouter.post("/assign/primary/employee", [validateRequest_1.default(admin_3.assignEmployeeToCustomerSchema), auth_1.default(admin_2.default)], admin_1.assignPrimaryEmployeeHandler);
 AdminRouter.post("/add/sick/leave", [auth_1.default(admin_2.default)], admin_1.addEmployeeSickHandler);

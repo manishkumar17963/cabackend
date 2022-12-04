@@ -58,6 +58,8 @@ var CustomerSchema = new mongoose_1.default.Schema({
         required: true,
         enum: enumArray_1.default(companyType_1.default),
     },
+    gstNumber: { type: String },
+    state: { type: String, required: true },
     lastname: { type: String },
     assignedEmployee: String,
     companyLocation: { type: common_1.PointLocationSchema },

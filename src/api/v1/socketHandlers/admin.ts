@@ -18,6 +18,7 @@ import SendBy from "../enums/sendBy";
 import TaskStatus from "../enums/taskStatus";
 import checkError from "../helpers/checkErrors";
 import CustomError from "../helpers/customError";
+import HolidayRequest from "../interfaces/holidayDate";
 import Admin, { AdminDocument } from "../models/admin";
 import { BranchDocument } from "../models/branch.model";
 import Comment from "../models/comment";
@@ -25,7 +26,12 @@ import {
   ConversationDocument,
   ConversationInput,
 } from "../models/conversation.model";
-import { EmployeeDocument, SickLeaveCategoryWithout } from "../models/employee";
+import {
+  EmployeeDocument,
+  SickLeave,
+  SickLeaveCategoryWithout,
+} from "../models/employee";
+import { HolidayDocument } from "../models/holiday";
 
 import { InvoiceDocument } from "../models/invoice.model";
 import Meeting from "../models/meeting";
@@ -42,7 +48,11 @@ import {
   findAndUpdateAttendance,
   findAttendance,
 } from "../services/attendance";
-import { aggregateBranch } from "../services/branch.service";
+import {
+  aggregateBranch,
+  findAllBranch,
+  findBranch,
+} from "../services/branch.service";
 import { aggregateCustomer } from "../services/customer";
 import {
   aggregateEmployee,
@@ -61,7 +71,7 @@ import {
 } from "../services/project.Service";
 import { aggregateQuotation } from "../services/quotation.Service";
 import { createSetting, findSetting } from "../services/setting.service";
-import { aggregateTask, findTask } from "../services/task";
+import { aggregateTask, findAllTask, findTask } from "../services/task";
 import { aggregateTemplate } from "../services/template.service";
 
 export function adminSocketHandler(socket: Socket) {
@@ -87,6 +97,10 @@ export function adminSocketHandler(socket: Socket) {
       await startAttendanceHandler(socket, data, callback);
     });
 
+    socket.on("add-employee-leave", async (data, callback) => {
+      await addSickHandler(socket, data, callback);
+    });
+
     socket.on("approve-attendance", async (data, callback) => {
       await approveAttendanceHandler(socket, data, callback);
     });
@@ -97,8 +111,28 @@ export function adminSocketHandler(socket: Socket) {
       await approveLeaveHandler(socket, data, callback);
     });
 
+    socket.on("employee-leave", async (data, callback) => {
+      await employeeLeaveHandler(socket, data, callback);
+    });
+
+    socket.on("time-log", async (data, callback) => {
+      await employeeTaskLogHandler(socket, data, callback);
+    });
+
+    socket.on("employee-monthly-report", async (data, callback) => {
+      await employeeMonthlyReportHandler(socket, data, callback);
+    });
+
     socket.on("deny-leave", async (data, callback) => {
       await denyLeaveHandler(socket, data, callback);
+    });
+
+    socket.on("admin-branch", async (data) => {
+      await adminBranchHandler(socket);
+    });
+
+    socket.on("employee-task", async (data) => {
+      await employeeTasksHandler(socket, data);
     });
 
     socket.on("admin-task-detail", async (data) => {
@@ -193,6 +227,62 @@ export function adminSocketHandler(socket: Socket) {
   }
 }
 
+export async function employeeMonthlyReportHandler(
+  socket: Socket,
+  data: { month: Date; employeeId: string },
+  callback: (data: any) => void
+) {
+  try {
+    const date = moment(data.month).startOf("month");
+    const employee = await findEmployee({ _id: data.employeeId });
+    if (!employee) {
+      throw new CustomError("Bad Request", 404, "No such employee found");
+    }
+    const query = {
+      date: { $gte: date.toDate(), $lt: date.add(1, "month").toDate() },
+    };
+    const attendances = findAllAttendance({
+      ...query,
+    });
+    const markAttendance = findAllAttendance(
+      {
+        ...query,
+        attendanceType: AttendanceType.Normal,
+        "attendances.employeeId": data.employeeId,
+      },
+      { date: 1, attendanceType: 1, "attendances.$": 1 }
+    );
+
+    const holidays = employee.holidayRequest.filter((value) => {
+      if (
+        moment(value.date).isSameOrAfter(date) &&
+        moment(value.date).isBefore(date.add(1, "month")) &&
+        value.status == HolidayStatus.Approved
+      ) {
+        return value;
+      }
+    });
+    const sickLeave = employee.sickLeave.find((value, index) => {
+      if (
+        moment(value.date)
+          .startOf("month")
+          .isSameOrBefore(moment(data.month).startOf("month"))
+      ) {
+        return true;
+      } else {
+        return false;
+      }
+    });
+    callback({
+      status: 200,
+      data: { sickLeave, holidays, attendances, markAttendance },
+    });
+  } catch (err) {
+    //@ts-ignore
+    callback({ status: 400, message: err.message });
+  }
+}
+
 export async function approveLeaveHandler(
   socket: Socket,
   data: { employeeId: string; holidayId: string },
@@ -217,6 +307,7 @@ export async function approveLeaveHandler(
         session,
       }
     );
+
     if (!employee) {
       throw new CustomError(
         "Bad Request",
@@ -247,41 +338,41 @@ export async function approveLeaveHandler(
 
     //@ts-ignore
     const types = Object.fromEntries(employee.sickLeave[index].types);
-    console.log("types", {
-      ...types,
-      [employee.holidayRequest[0].type]: {
-        value: types[employee.holidayRequest[0].type].value,
-        name: types[employee.holidayRequest[0].type].name,
-        type: types[employee.holidayRequest[0].type].type,
-        completed: types[employee.holidayRequest[0].type].completed + 1,
-      },
-    });
+    const employeeHoliday = await findEmployee(
+      { _id: data.employeeId },
+      { holidayRequest: 1 }
+    );
+    const totalLeaveTaken = employeeHoliday!.holidayRequest.filter(
+      (value) =>
+        value.sickId.equals(employee.holidayRequest[0].sickId) &&
+        value.type == employee.holidayRequest[0].type &&
+        value.status == HolidayStatus.Approved
+    );
     if (
-      types[employee.holidayRequest[0].type].value -
-        types[employee.holidayRequest[0].type].completed <=
+      types[employee.holidayRequest[0].type].value - totalLeaveTaken.length <=
       0
     ) {
       throw new CustomError("Bad Request", 400, "No remaining leave found");
     }
 
-    employee.sickLeave = [
-      ...employee.sickLeave.slice(0, index),
-      {
-        date: employee.sickLeave[index].date,
-        types: {
-          ...types,
-          [employee.holidayRequest[0].type]: {
-            value: types[employee.holidayRequest[0].type].value,
-            name: types[employee.holidayRequest[0].type].name,
-            type: types[employee.holidayRequest[0].type].type,
-            completed: types[employee.holidayRequest[0].type].completed + 1,
-          },
-        },
-      },
-      ...employee.sickLeave.slice(index + 1),
-    ];
+    // employee.sickLeave = [
+    //   ...employee.sickLeave.slice(0, index),
+    //   {
+    //     date: employee.sickLeave[index].date,
+    //     types: {
+    //       ...types,
+    //       [employee.holidayRequest[0].type]: {
+    //         value: types[employee.holidayRequest[0].type].value,
+    //         name: types[employee.holidayRequest[0].type].name,
+    //         type: types[employee.holidayRequest[0].type].type,
+    //         completed: types[employee.holidayRequest[0].type].completed + 1,
+    //       },
+    //     },
+    //   },
+    //   ...employee.sickLeave.slice(index + 1),
+    // ];
 
-    await employee.save();
+    // await employee.save();
     await session.commitTransaction();
     callback({
       status: 200,
@@ -333,45 +424,10 @@ export async function denyLeaveHandler(
       throw new CustomError("Bad Request", 400, "date already passed");
     }
 
-    const index = employee.sickLeave.findIndex((value, index) => {
-      if (
-        moment(value.date).month() <=
-        moment(employee.holidayRequest[0].date).month()
-      ) {
-        return true;
-      } else {
-        return false;
-      }
-    });
-    if (index == -1) {
-      throw new CustomError("Bad Request", 400, "No such type of leave found");
-    }
-
-    //@ts-ignore
-    const types = Object.fromEntries(employee.sickLeave[index].types);
-
-    employee.sickLeave = [
-      ...employee.sickLeave.slice(0, index),
-      {
-        date: employee.sickLeave[index].date,
-        types: {
-          ...types,
-          [employee.holidayRequest[0].type]: {
-            value: types[employee.holidayRequest[0].type].value,
-            name: types[employee.holidayRequest[0].type].name,
-            type: types[employee.holidayRequest[0].type].type,
-            completed: types[employee.holidayRequest[0].type].completed - 1,
-          },
-        },
-      },
-      ...employee.sickLeave.slice(index + 1),
-    ];
-
-    await employee.save();
     await session.commitTransaction();
     callback({
       status: 200,
-      message: `holiday of employee ${employee.username} is approved`,
+      message: `holiday of employee ${employee.username} is denied`,
     });
   } catch (error) {
     console.log("errr", error);
@@ -379,6 +435,73 @@ export async function denyLeaveHandler(
     //@ts-ignore
     callback({ status: 400, message: error.message });
   }
+}
+
+export async function addSickHandler(
+  socket: Socket,
+  data: { employeeId: string; sickLeave: SickLeave },
+  callback: (data: any) => void
+) {
+  try {
+    const employee = await findEmployee(
+      { _id: data.employeeId },
+      { sickLeave: 1 }
+    );
+    if (!employee) {
+      throw new CustomError("Bad Request", 400, "No such employee found");
+    }
+    const lastLeave = employee?.sickLeave?.[0];
+    console.log(
+      "data",
+      JSON.stringify(data),
+      lastLeave.date,
+      moment(data.sickLeave.date).startOf("month").toDate()
+    );
+    if (lastLeave) {
+      if (
+        moment(data.sickLeave.date)
+          .startOf("month")
+          .isBefore(
+            moment(lastLeave.date).add(1, "months") && moment().startOf("month")
+          ) ||
+        moment(data.sickLeave.date).startOf("month").isBefore(moment())
+      ) {
+        throw new CustomError(
+          "Bad Request",
+          400,
+          "This month is already added or passed"
+        );
+      } else {
+        employee.sickLeave = [data.sickLeave, ...employee.sickLeave];
+      }
+    } else {
+      if (moment(data.sickLeave.date).startOf("month").isBefore(moment())) {
+        throw new CustomError(
+          "Bad Request",
+          400,
+          "This month is already added or passed"
+        );
+      } else {
+        employee.sickLeave = [data.sickLeave];
+      }
+    }
+    await employee.save();
+    callback({ status: 200, message: "Sickleave successfully added" });
+  } catch (err) {
+    console.log("error", err);
+    //@ts-ignore
+    callback({ status: 400, message: err.message });
+  }
+}
+
+export async function employeeTasksHandler(
+  socket: Socket,
+  data: { employeeId: string }
+) {
+  try {
+    const tasks = await findAllTask({ assignedEmployee: data.employeeId });
+    socket.emit("employee-task-result", tasks);
+  } catch (err) {}
 }
 
 export async function approveAttendanceHandler(
@@ -408,6 +531,13 @@ export async function approveAttendanceHandler(
     //@ts-ignore
     callback({ status: 400, message: err.message });
   }
+}
+
+export async function adminBranchHandler(socket: Socket) {
+  try {
+    const branches = await findAllBranch({});
+    socket.emit("admin-branch-result", branches);
+  } catch (err) {}
 }
 export async function denyAttendanceHandler(
   socket: Socket,
@@ -455,7 +585,7 @@ export async function sickLeaveHandler(
           //@ts-ignore
           ...value.toJSON(),
           title: value.reason,
-          start: value.date,
+          start: moment(value.date),
           end: moment(value.date).add(1, "day"),
         })),
       });
@@ -481,6 +611,17 @@ async function adminEmployeeAttendanceHandler(
         attendanceType: 1,
       }
     );
+    // const employee = await findEmployee(
+    //   { _id: data.employeeId },
+    //   { holidayRequest: 1 }
+    // );
+    // let holiday: HolidayRequest[] = [];
+    // if (!employee) {
+    //   return;
+    // } else {
+    //   holiday = employee.holidayRequest;
+    // }
+    // console.log("attendance", attendances);
     socket.emit("employee-attendance-result", attendances);
   } catch (err) {
     console.log("error", err);
@@ -539,7 +680,7 @@ async function adminMeetingDateHandler(
   try {
     //@ts-ignore
     const user = socket.user as AdminDocument;
-    console.log("date", data, moment(data.date).startOf("day").toDate());
+
     const match: { [key: string]: string } = {};
     if (data.employeeId) {
       match["employeeId"] = data.employeeId;
@@ -763,27 +904,29 @@ export async function startAttendanceHandler(
   callback: (data: any) => void
 ) {
   try {
-    let attendance = await findAttendance({ date: moment().startOf("day") });
+    let attendance = await findAttendance({
+      date: moment().startOf("day"),
+    });
     if (attendance) {
       if (attendance.attendanceType != AttendanceType.Normal) {
-        return callback({
+        return callback?.({
           status: 400,
           message: "This day is declared as holiday",
         });
       } else {
-        return callback({
+        return callback?.({
           status: 400,
           message: "Attendance already started",
         });
       }
     }
     await createAttendance({
-      date: moment().startOf("day"),
+      date: moment().startOf("day").toISOString(),
       open: true,
       attendanceType: data.type,
       attendance: [],
     });
-    return callback({
+    return callback?.({
       status: 200,
       message: "Attendance successfully started",
     });
@@ -1567,6 +1710,8 @@ async function adminTaskHandler(socket: Socket, data: { projectId: string }) {
                 _id: 1,
                 companyName: 1,
                 firstname: 1,
+                gstNumber: 1,
+                state: 1,
                 lastname: 1,
                 email: 1,
                 number: 1,
@@ -1653,6 +1798,79 @@ async function adminTaskHandler(socket: Socket, data: { projectId: string }) {
     });
   } else {
     return;
+  }
+}
+
+async function employeeLeaveHandler(
+  socket: Socket,
+  data: { employeeId: string },
+  callback: (data: any) => void
+) {
+  try {
+    const employee = await findEmployee(
+      { _id: data.employeeId },
+      { sickLeave: 1 }
+    );
+    if (!employee) {
+      throw new CustomError("Bad Request", 404, "No such employee found");
+    }
+    callback({ status: 200, data: employee.sickLeave });
+  } catch (err) {
+    //@ts-ignore
+    callback({ status: 400, message: error.message });
+  }
+}
+
+async function employeeTaskLogHandler(
+  socket: Socket,
+  data: { taskId: string },
+  callback: (data: any) => void
+) {
+  try {
+    const tasks = await aggregateTask([
+      {
+        $match: {
+          _id: new mongoose.Types.ObjectId(data.taskId),
+        },
+      },
+      { $unwind: "$timeLog" },
+      {
+        $lookup: {
+          from: "employees",
+          let: { employeeId: "$timeLog.employeeId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$_id", "$$employeeId"],
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 1,
+                username: 1,
+                profileUri: 1,
+                number: 1,
+              },
+            },
+          ],
+          as: "employee",
+        },
+      },
+      { $unwind: "$employee" },
+      {
+        $replaceRoot: {
+          newRoot: {
+            $mergeObjects: [{ employee: "$employee" }, "$timeLog"],
+          },
+        },
+      },
+    ]);
+    callback({ status: 200, data: tasks });
+  } catch (err) {
+    //@ts-ignore
+    callback({ status: 400, message: error.message });
   }
 }
 

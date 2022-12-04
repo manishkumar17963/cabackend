@@ -242,6 +242,10 @@ export async function completeTaskHandler(req: Request, res: Response) {
         "No such project found or project already declined"
       );
     }
+    const timeLog = task.timeLog[0];
+    if (timeLog && !timeLog.endTime) {
+      task.timeLog[0].endTime = moment().toDate();
+    }
 
     task.status = TaskStatus.Completed;
 
@@ -270,7 +274,10 @@ export async function declinedTaskHandler(req: Request, res: Response) {
         "No such task found or task completed or task already declined"
       );
     }
-
+    const timeLog = task.timeLog[0];
+    if (timeLog && !timeLog.endTime) {
+      task.timeLog[0].endTime = moment().toDate();
+    }
     res.send({ message: `task with ${task.name} declined by you` });
   } catch (error) {
     checkError(error, res);
@@ -333,7 +340,7 @@ export async function verifyEmployeeHandler(req: Request, res: Response) {
     const iterator = setting?.types?.entries() ?? new Map().entries();
     let value = iterator.next().value;
     while (value) {
-      types[value[0]] = { ...(value[1]?.toJSON() ?? value[1]), completed: 0 };
+      types[value[0]] = { ...(value[1]?.toJSON() ?? value[1]) };
       value = iterator.next().value;
     }
 
@@ -566,11 +573,17 @@ export async function addAttendanceHandler(req: Request, res: Response) {
 export async function addHolidayRequestHandler(req: Request, res: Response) {
   try {
     const user = req.user! as EmployeeDocument;
-    const { date, reason, type }: { date: Date; reason: string; type: string } =
-      req.body;
+    let {
+      date,
+      reason,
+      type,
+      sickId,
+    }: { date: Date; reason: string; type: string; sickId: string } = req.body;
     if (moment(date).isBefore(moment())) {
       throw new CustomError("Bad Request", 404, "Date already passed");
     }
+
+    console.log("date", date);
     const holiday = await findHoliday({
       start: { $lte: date },
       end: { $gt: date },
@@ -582,12 +595,17 @@ export async function addHolidayRequestHandler(req: Request, res: Response) {
         "This day was holiday declared by owner"
       );
     }
-    const requestIndex = user.holidayRequest.findIndex((value) =>
-      moment(value.date).isSame(moment(date))
-    );
+
+    const requestIndex = user.holidayRequest.findIndex((value) => {
+      return moment(value.date).isSame(moment(date));
+    });
 
     const value = user.sickLeave.find((value, index) => {
-      if (moment(value.date).month() <= moment(date).month()) {
+      if (
+        moment(value.date)
+          .startOf("month")
+          .isSameOrBefore(moment(date).startOf("month"))
+      ) {
         return true;
       } else {
         return false;
@@ -596,17 +614,24 @@ export async function addHolidayRequestHandler(req: Request, res: Response) {
     if (!value) {
       throw new CustomError("Bad Request", 404, "No such type of leave found");
     }
+
     //@ts-ignore
     const leaves = Object.fromEntries(value.types);
     console.log("leaves", leaves);
-    if (leaves[type]?.value - leaves[type]?.completed <= 0) {
-      throw new CustomError("Bad Request", 404, "No Remaining live found");
+    const totalLeaveTaken = user.holidayRequest.filter(
+      (value) =>
+        value.sickId.equals(sickId) &&
+        value.type == type &&
+        value.status == HolidayStatus.Approved
+    );
+    if (leaves[type]?.value - totalLeaveTaken.length <= 0) {
+      throw new CustomError("Bad Request", 404, "No Remaining leave found");
     }
     if (requestIndex == -1) {
       user.holidayRequest.push({
         //@ts-ignore
         sickId: value._id,
-        date,
+        date: new Date(date),
         reason,
 
         status: HolidayStatus.Pending,
@@ -615,7 +640,7 @@ export async function addHolidayRequestHandler(req: Request, res: Response) {
         type: type,
       });
     } else {
-      user.holidayRequest[requestIndex].reason = reason;
+      throw new CustomError("Bad Request", 404, "Leave already added");
     }
     await user.save();
     res.send({ message: "your holiday request has been sent to owner" });
@@ -1132,6 +1157,7 @@ export async function createTaskCustomerHandler(req: Request, res: Response) {
       name: name,
       assignedEmployee: employeeId,
       priority: priority,
+      timeLog: [],
       previousEmployee: employeeId
         ? [
             {
@@ -1254,6 +1280,10 @@ export async function assignTaskToEmployeeHandler(req: Request, res: Response) {
     }
     task.assignedEmployee = employeeId;
     task.status = TaskStatus.Ongoing;
+    const timeLog = task?.timeLog?.[0];
+    if (timeLog && !timeLog.endTime) {
+      task.timeLog[0].endTime = moment().toDate();
+    }
     console.log("some new ", {
       assignedBy: user._id,
       assignedDate: date,

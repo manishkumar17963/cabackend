@@ -151,7 +151,7 @@ function callbackHandler(req, res, handlerFunction) {
                                                     result = JSON.parse(response);
                                                     console.log("result", result);
                                                     if (!(result.STATUS === "TXN_SUCCESS")) return [3 /*break*/, 3];
-                                                    return [4 /*yield*/, handlerFunction(req, session, result.TXNID)];
+                                                    return [4 /*yield*/, handlerFunction(req, session, result.TXNAMOUNT, result.TXNID)];
                                                 case 1:
                                                     order = _a.sent();
                                                     return [4 /*yield*/, session.commitTransaction()];
@@ -193,30 +193,34 @@ function callbackHandler(req, res, handlerFunction) {
     });
 }
 function invoicePaymentHandler(req, res) {
+    var _a, _b, _c;
     return __awaiter(this, void 0, void 0, function () {
         var user, invoice, amount, err_2;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
+        return __generator(this, function (_d) {
+            switch (_d.label) {
                 case 0:
-                    _a.trys.push([0, 3, , 4]);
+                    _d.trys.push([0, 3, , 4]);
                     user = req.user;
                     return [4 /*yield*/, invoice_service_1.findInvoice({
                             _id: req.params.invoiceId,
                             paymentStatus: paymentStatus_1.default.Unpaid,
                             customerId: user._id,
-                        }, { amount: 1, services: 1 })];
+                        }, { amount: 1, services: 1, cgst: 1, sgst: 1 })];
                 case 1:
-                    invoice = _a.sent();
+                    invoice = _d.sent();
                     if (!invoice) {
                         throw new customError_1.default("Bad request", 404, "Invoice already paid or no such invoice found");
                     }
                     amount = invoice.services.reduce(function (total, value) { return total + value.price; }, 0);
-                    return [4 /*yield*/, paymentHandler(req, res, Math.ceil(amount !== null && amount !== void 0 ? amount : 0))];
+                    if (req.body.tds > amount) {
+                        throw new customError_1.default("Bad request", 404, "tds amount can not be greater than amount");
+                    }
+                    return [4 /*yield*/, paymentHandler(req, res, Math.ceil(amount - ((_a = req.body.tds) !== null && _a !== void 0 ? _a : 0) + ((_b = invoice.cgst) !== null && _b !== void 0 ? _b : 0) + ((_c = invoice.sgst) !== null && _c !== void 0 ? _c : 0)))];
                 case 2:
-                    _a.sent();
+                    _d.sent();
                     return [3 /*break*/, 4];
                 case 3:
-                    err_2 = _a.sent();
+                    err_2 = _d.sent();
                     checkErrors_1.default(err_2, res);
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
@@ -238,34 +242,37 @@ function invoicePaymentCallbackHandler(req, res) {
     });
 }
 exports.invoicePaymentCallbackHandler = invoicePaymentCallbackHandler;
-function invoicePaymentSuccessHandler(req, session, transactionId) {
+function invoicePaymentSuccessHandler(req, session, amount, transactionId) {
+    var _a, _b;
     return __awaiter(this, void 0, void 0, function () {
         var invoice, project;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0: return [4 /*yield*/, invoice_service_1.findAndUpdateInvoice({
+        return __generator(this, function (_c) {
+            switch (_c.label) {
+                case 0: return [4 /*yield*/, invoice_service_1.findInvoice({
                         _id: req.params.invoiceId,
                         paymentStatus: paymentStatus_1.default.Unpaid,
                         customerId: req.params.customerId,
-                    }, {
-                        $set: {
-                            actualPaymentDate: new Date(),
-                            paymentStatus: paymentStatus_1.default.Paid,
-                        },
-                    }, { session: session })];
+                    }, {}, { session: session })];
                 case 1:
-                    invoice = _a.sent();
+                    invoice = _c.sent();
                     if (!invoice) {
                         throw new customError_1.default("Bad request", 404, "Invoice already paid or no such invoice found");
                     }
+                    invoice.actualPaymentDate = new Date();
+                    invoice.paymentStatus = paymentStatus_1.default.Paid;
+                    invoice.tds =
+                        invoice.amount + ((_a = invoice.cgst) !== null && _a !== void 0 ? _a : 0) + ((_b = invoice.sgst) !== null && _b !== void 0 ? _b : 0) - amount;
+                    return [4 /*yield*/, invoice.save()];
+                case 2:
+                    _c.sent();
                     return [4 /*yield*/, project_Service_1.findProject({
                             _id: invoice.projectId,
                             status: taskStatus_1.default.Completed,
                             paymentStatus: { $ne: paymentStatus_1.default.Paid },
                             paymentInitiated: true,
                         })];
-                case 2:
-                    project = _a.sent();
+                case 3:
+                    project = _c.sent();
                     if (!project) {
                         throw new customError_1.default("Bad Request", 404, "No such project found or payment not initiated");
                     }
@@ -274,8 +281,8 @@ function invoicePaymentSuccessHandler(req, session, transactionId) {
                     project.transactionId = transactionId;
                     project.actualPaymentDate = new Date();
                     return [4 /*yield*/, project.save()];
-                case 3:
-                    _a.sent();
+                case 4:
+                    _c.sent();
                     return [2 /*return*/];
             }
         });

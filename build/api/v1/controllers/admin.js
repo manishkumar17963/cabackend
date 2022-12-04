@@ -57,7 +57,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.adminConnectMeetingHandler = exports.updateEmployeeSickHandler = exports.addEmployeeSickHandler = exports.assignPrimaryEmployeeHandler = exports.deleteTemplateHandler = exports.createBranchHandler = exports.createTemplateHandler = exports.stopAttendanceHandler = exports.startAttendanceHandler = exports.removeHolidayHandler = exports.addHolidayHandler = exports.completeMeetingHandler = exports.declineMeetingHandler = exports.updateEmployeeMeetingHandler = exports.requestMeetingHandler = exports.toggleApprovalAttendanceHandler = exports.updateTaskHandler = exports.denyHolidayHandler = exports.approveHolidayHandler = exports.addCommentHandler = exports.changePaymentStatusManuallyHandler = exports.addInvoiceHandler = exports.addQuotationHandler = exports.updateTaskStatusHandler = exports.declinedTaskHandler = exports.completeTaskHandler = exports.updateStatusHandler = exports.declinedProjectHandler = exports.completeProjectHandler = exports.removeEmployeeFromProjectHandler = exports.removeEmployeeFromTaskHandler = exports.assignTaskToEmployeeHandler = exports.createTaskCustomerHandler = exports.changePrimaryEmployeeHandler = exports.updateProjectHandler = exports.createProjectForCustomerHandler = exports.assignEmployeeToCustomerHandler = exports.getStatusHandler = exports.logoutAdminHandler = exports.loginAdminHandler = exports.verifyForgotOtpHandler = exports.forgotPasswordHandler = exports.verifyAdminHandler = exports.createAdminHandler = void 0;
+exports.adminConnectMeetingHandler = exports.updateEmployeeSickHandler = exports.addEmployeeSickHandler = exports.assignPrimaryEmployeeHandler = exports.deleteTemplateHandler = exports.updateBranchHandler = exports.createBranchHandler = exports.createTemplateHandler = exports.stopAttendanceHandler = exports.startAttendanceHandler = exports.removeHolidayHandler = exports.addHolidayHandler = exports.completeMeetingHandler = exports.declineMeetingHandler = exports.updateEmployeeMeetingHandler = exports.requestMeetingHandler = exports.toggleApprovalAttendanceHandler = exports.updateTaskHandler = exports.denyHolidayHandler = exports.approveHolidayHandler = exports.addCommentHandler = exports.changePaymentStatusManuallyHandler = exports.addInvoiceHandler = exports.addQuotationHandler = exports.updateTaskStatusHandler = exports.declinedTaskHandler = exports.completeTaskHandler = exports.updateStatusHandler = exports.declinedProjectHandler = exports.completeProjectHandler = exports.removeEmployeeFromProjectHandler = exports.removeEmployeeFromTaskHandler = exports.assignTaskToEmployeeHandler = exports.createTaskCustomerHandler = exports.changePrimaryEmployeeHandler = exports.updateProjectHandler = exports.createProjectForCustomerHandler = exports.assignEmployeeToCustomerHandler = exports.getStatusHandler = exports.logoutAdminHandler = exports.loginAdminHandler = exports.verifyForgotOtpHandler = exports.forgotPasswordHandler = exports.verifyAdminHandler = exports.createAdminHandler = void 0;
 var checkErrors_1 = __importDefault(require("../helpers/checkErrors"));
 var customError_1 = __importDefault(require("../helpers/customError"));
 var agora_access_token_1 = require("agora-access-token");
@@ -84,6 +84,7 @@ var attendance_2 = __importDefault(require("../models/attendance"));
 var attendanceType_1 = __importDefault(require("../enums/attendanceType"));
 var project_Service_1 = require("../services/project.Service");
 var sendOtp_1 = require("../helpers/sendOtp");
+var task_model_1 = __importDefault(require("../models/task.model"));
 var quotation_Service_1 = require("../services/quotation.Service");
 var quotationRel_1 = __importDefault(require("../enums/quotationRel"));
 var quotationType_enum_1 = __importDefault(require("../enums/quotationType.enum"));
@@ -96,6 +97,7 @@ var conversation_service_1 = require("../services/conversation.service");
 var meeting_2 = require("../models/meeting");
 var admin_2 = require("../socketHandlers/admin");
 var role_1 = __importDefault(require("../enums/role"));
+var gstWithState_1 = __importDefault(require("../helpers/gstWithState"));
 function createAdminHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
         var code, phone, admin, err_1;
@@ -753,6 +755,7 @@ function createTaskCustomerHandler(req, res) {
                         name: name_2,
                         assignedEmployee: employeeId_2,
                         priority: priority,
+                        timeLog: [],
                         previousEmployee: employeeId_2
                             ? [
                                 {
@@ -790,18 +793,18 @@ function createTaskCustomerHandler(req, res) {
 }
 exports.createTaskCustomerHandler = createTaskCustomerHandler;
 function assignTaskToEmployeeHandler(req, res) {
-    var _a;
+    var _a, _b;
     return __awaiter(this, void 0, void 0, function () {
-        var _b, taskId, employeeId_3, user, employee, task_2, project, conversation, index_2, date, index, error_5;
-        return __generator(this, function (_c) {
-            switch (_c.label) {
+        var _c, taskId, employeeId_3, user, employee, task_2, project, conversation, index_2, date, timeLog, index, error_5;
+        return __generator(this, function (_d) {
+            switch (_d.label) {
                 case 0:
-                    _c.trys.push([0, 7, , 8]);
-                    _b = req.body, taskId = _b.taskId, employeeId_3 = _b.employeeId;
+                    _d.trys.push([0, 7, , 8]);
+                    _c = req.body, taskId = _c.taskId, employeeId_3 = _c.employeeId;
                     user = req.user;
                     return [4 /*yield*/, employee_1.findEmployee({ _id: employeeId_3 })];
                 case 1:
-                    employee = _c.sent();
+                    employee = _d.sent();
                     if (!employee) {
                         throw new customError_1.default("Bad Request", 404, "No such employee found");
                     }
@@ -810,7 +813,7 @@ function assignTaskToEmployeeHandler(req, res) {
                             status: { $nin: [taskStatus_1.default.Completed, taskStatus_1.default.Declined] },
                         })];
                 case 2:
-                    task_2 = _c.sent();
+                    task_2 = _d.sent();
                     if (!task_2) {
                         throw new customError_1.default("Bad Request", 404, "No such task found or task completed or task declined");
                     }
@@ -819,7 +822,7 @@ function assignTaskToEmployeeHandler(req, res) {
                     }
                     return [4 /*yield*/, project_Service_1.findProject({ _id: task_2.projectId })];
                 case 3:
-                    project = _c.sent();
+                    project = _d.sent();
                     if (!project) {
                         throw new customError_1.default("Bad Request", 404, "No such project found");
                     }
@@ -837,7 +840,7 @@ function assignTaskToEmployeeHandler(req, res) {
                             },
                         }, {})];
                 case 4:
-                    conversation = _c.sent();
+                    conversation = _d.sent();
                     if (!conversation) {
                         throw new customError_1.default("Bad Request", 404, "No such conversation found");
                     }
@@ -868,6 +871,10 @@ function assignTaskToEmployeeHandler(req, res) {
                     }
                     task_2.assignedEmployee = employeeId_3;
                     task_2.status = taskStatus_1.default.Ongoing;
+                    timeLog = (_a = task_2 === null || task_2 === void 0 ? void 0 : task_2.timeLog) === null || _a === void 0 ? void 0 : _a[0];
+                    if (timeLog && !timeLog.endTime) {
+                        task_2.timeLog[0].endTime = moment_1.default().toDate();
+                    }
                     console.log("some new ", {
                         assignedBy: user._id,
                         assignedDate: date,
@@ -900,16 +907,16 @@ function assignTaskToEmployeeHandler(req, res) {
                     }
                     return [4 /*yield*/, project.save()];
                 case 5:
-                    _c.sent();
+                    _d.sent();
                     return [4 /*yield*/, task_2.save()];
                 case 6:
-                    _c.sent();
+                    _d.sent();
                     res.send({
-                        message: "task with name " + ((_a = task_2.description) !== null && _a !== void 0 ? _a : "nothing") + " assigned to employee with name " + employee.username,
+                        message: "task with name " + ((_b = task_2.description) !== null && _b !== void 0 ? _b : "nothing") + " assigned to employee with name " + employee.username,
                     });
                     return [3 /*break*/, 8];
                 case 7:
-                    error_5 = _c.sent();
+                    error_5 = _d.sent();
                     checkErrors_1.default(error_5, res);
                     return [3 /*break*/, 8];
                 case 8: return [2 /*return*/];
@@ -1069,11 +1076,11 @@ function removeEmployeeFromProjectHandler(req, res) {
 exports.removeEmployeeFromProjectHandler = removeEmployeeFromProjectHandler;
 function completeProjectHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var project, customer, notificationMessage, error_6;
+        var project, tasks, customer, notificationMessage, error_6;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    _a.trys.push([0, 5, , 6]);
+                    _a.trys.push([0, 7, , 8]);
                     return [4 /*yield*/, project_Service_1.findProject({
                             _id: req.body.projectId,
                             clientApproved: true,
@@ -1085,24 +1092,36 @@ function completeProjectHandler(req, res) {
                     if (!project) {
                         throw new customError_1.default("Bad Request", 404, "No such project found or project already declined");
                     }
-                    return [4 /*yield*/, customer_1.findCustomer({ _id: project.customerId })];
+                    return [4 /*yield*/, task_model_1.default.updateMany({
+                            projectId: project._id,
+                            status: { $nin: [taskStatus_1.default.Declined] },
+                        }, { $set: { status: taskStatus_1.default.Completed } }, {})];
                 case 2:
+                    tasks = _a.sent();
+                    return [4 /*yield*/, task_model_1.default.updateMany({
+                            projectId: project._id,
+                            "timeLog.endTime": { $exists: false },
+                        }, { $set: { "timeLog.$.endTime": moment_1.default().toDate() } }, {})];
+                case 3:
+                    _a.sent();
+                    return [4 /*yield*/, customer_1.findCustomer({ _id: project.customerId })];
+                case 4:
                     customer = _a.sent();
                     project.status = taskStatus_1.default.Completed;
                     notificationMessage = "hey " + (customer === null || customer === void 0 ? void 0 : customer.firstname) + ",your task " + project.description + " is completed.";
                     return [4 /*yield*/, project.save()];
-                case 3:
+                case 5:
                     _a.sent();
                     return [4 /*yield*/, admin_2.updateProjectStatusHandler(project, req.body)];
-                case 4:
+                case 6:
                     _a.sent();
                     res.send({ message: "project " + project.description + " is completed" });
-                    return [3 /*break*/, 6];
-                case 5:
+                    return [3 /*break*/, 8];
+                case 7:
                     error_6 = _a.sent();
                     checkErrors_1.default(error_6, res);
-                    return [3 /*break*/, 6];
-                case 6: return [2 /*return*/];
+                    return [3 /*break*/, 8];
+                case 8: return [2 /*return*/];
             }
         });
     });
@@ -1175,7 +1194,7 @@ function updateStatusHandler(req, res) {
 exports.updateStatusHandler = updateStatusHandler;
 function completeTaskHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var task, error_9;
+        var task, timeLog, error_9;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -1190,6 +1209,10 @@ function completeTaskHandler(req, res) {
                         throw new customError_1.default("Bad Request", 404, "No such project found or project already declined");
                     }
                     task.status = taskStatus_1.default.Completed;
+                    timeLog = task.timeLog[0];
+                    if (timeLog && !timeLog.endTime) {
+                        task.timeLog[0].endTime = moment_1.default().toDate();
+                    }
                     return [4 /*yield*/, task.save()];
                 case 2:
                     _a.sent();
@@ -1207,11 +1230,11 @@ function completeTaskHandler(req, res) {
 exports.completeTaskHandler = completeTaskHandler;
 function declinedTaskHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var task, error_10;
+        var task, timeLog, error_10;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    _a.trys.push([0, 2, , 3]);
+                    _a.trys.push([0, 3, , 4]);
                     return [4 /*yield*/, task_1.findAndUpdateTask({
                             _id: req.body.taskId,
                             status: { $nin: [taskStatus_1.default.Completed, taskStatus_1.default.Declined] },
@@ -1221,13 +1244,20 @@ function declinedTaskHandler(req, res) {
                     if (!task) {
                         throw new customError_1.default("Bad Request", 404, "No such task found or task completed or task already declined");
                     }
-                    res.send({ message: "task with " + task.name + " declined by you" });
-                    return [3 /*break*/, 3];
+                    timeLog = task.timeLog[0];
+                    if (timeLog && !timeLog.endTime) {
+                        task.timeLog[0].endTime = moment_1.default().toDate();
+                    }
+                    return [4 /*yield*/, task.save()];
                 case 2:
+                    _a.sent();
+                    res.send({ message: "task with " + task.name + " declined by you" });
+                    return [3 /*break*/, 4];
+                case 3:
                     error_10 = _a.sent();
                     checkErrors_1.default(error_10, res);
-                    return [3 /*break*/, 3];
-                case 3: return [2 /*return*/];
+                    return [3 /*break*/, 4];
+                case 4: return [2 /*return*/];
             }
         });
     });
@@ -1298,6 +1328,7 @@ function addQuotationHandler(req, res) {
                     }
                     quotationInput = {
                         projectName: project.name,
+                        gstNumber: branch.gstNumber,
                         customerId: project.customerId,
                         projectId: project._id,
                         quotationType: quotationType_enum_1.default.Current,
@@ -1366,7 +1397,7 @@ function addQuotationHandler(req, res) {
 exports.addQuotationHandler = addQuotationHandler;
 function addInvoiceHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var project, invoice, branch, amount, customer, notificationMessage, err_10;
+        var project, customer, invoice, branch, amount, sameCity, tax, notificationMessage, err_10;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -1382,39 +1413,54 @@ function addInvoiceHandler(req, res) {
                     if (!project) {
                         throw new customError_1.default("Bad Request", 404, "No Such project found or payment already paid");
                     }
+                    return [4 /*yield*/, customer_1.findCustomer({
+                            _id: project === null || project === void 0 ? void 0 : project.customerId,
+                        })];
+                case 2:
+                    customer = _a.sent();
+                    if (!customer) {
+                        throw new customError_1.default("Bad Request", 404, "No Such Customer found");
+                    }
                     return [4 /*yield*/, invoice_service_1.findInvoice({
                             projectId: project._id,
                             paymentStatus: paymentStatus_1.default.Unpaid,
                         })];
-                case 2:
+                case 3:
                     invoice = _a.sent();
                     return [4 /*yield*/, branch_service_1.findBranch({ _id: req.body.branchId })];
-                case 3:
+                case 4:
                     branch = _a.sent();
                     if (!branch) {
                         throw new customError_1.default("Bad Request", 404, "No such branch found");
                     }
                     amount = req.body.services.reduce(function (total, value) { return total + value.price; }, 0);
-                    if (!invoice) return [3 /*break*/, 7];
+                    sameCity = branch.state == customer.state;
+                    tax = (amount * req.body.taxPercentage) / 100;
+                    if (!invoice) return [3 /*break*/, 8];
                     invoice.notes = req.body.notes;
-                    if (!(!invoice.branchId == branch._id)) return [3 /*break*/, 5];
+                    if (!(!invoice.branchId == branch._id)) return [3 /*break*/, 6];
                     invoice.branchId = branch._id;
                     invoice.invoiceNo = branch.appendId + (branch.invoiceNo + 1);
                     branch.invoiceNo += 1;
                     return [4 /*yield*/, branch.save()];
-                case 4:
-                    _a.sent();
-                    _a.label = 5;
                 case 5:
+                    _a.sent();
+                    _a.label = 6;
+                case 6:
+                    invoice.cgst = sameCity ? tax / 2 : tax;
+                    invoice.taxPercentage = req.body.taxPercentage;
+                    invoice.sameCity = sameCity;
+                    invoice.sgst = sameCity ? tax / 2 : 0;
+                    invoice.gstNumber = branch.gstNumber;
                     invoice.expectedPaymentDate = moment_1.default(req.body.expectedPaymentDate).toDate();
                     invoice.amount = amount;
                     invoice.createdBy = req.id.toString();
                     invoice.services = req.body.services;
                     return [4 /*yield*/, invoice.save()];
-                case 6:
+                case 7:
                     _a.sent();
-                    return [3 /*break*/, 10];
-                case 7: return [4 /*yield*/, invoice_service_1.createInvoice({
+                    return [3 /*break*/, 11];
+                case 8: return [4 /*yield*/, invoice_service_1.createInvoice({
                         customerId: project.customerId,
                         projectId: project._id,
                         notes: req.body.notes,
@@ -1426,26 +1472,28 @@ function addInvoiceHandler(req, res) {
                         paymentStatus: paymentStatus_1.default.Unpaid,
                         createdBy: req.user._id.toString(),
                         services: req.body.services,
+                        cgst: sameCity ? tax / 2 : tax,
+                        taxPercentage: req.body.taxPercentage,
+                        sameCity: sameCity,
+                        sgst: sameCity ? tax / 2 : 0,
+                        gstNumber: branch.gstNumber,
                     })];
-                case 8:
+                case 9:
                     invoice = _a.sent();
                     branch.invoiceNo += 1;
                     return [4 /*yield*/, branch.save()];
-                case 9:
+                case 10:
                     _a.sent();
                     project.invoiceId = invoice._id;
                     project.paymentInitiated = true;
-                    _a.label = 10;
-                case 10:
+                    _a.label = 11;
+                case 11:
                     project.paymentStatus = paymentStatus_1.default.Unpaid;
                     project.expectedPaymentDate = moment_1.default(req.body.expectedPaymentDate).toDate();
                     project.paymentAmount = amount;
                     return [4 /*yield*/, project.save()];
-                case 11:
-                    _a.sent();
-                    return [4 /*yield*/, customer_1.findCustomer({ _id: project.customerId })];
                 case 12:
-                    customer = _a.sent();
+                    _a.sent();
                     notificationMessage = "hey " + (customer === null || customer === void 0 ? void 0 : customer.firstname) + ",your project " + project.description + " is completed and admin initiate the payment of " + amount + ",please pay before " + moment_1.default(req.body.expectedPaymentDate).format("DD-MM-YYYY");
                     admin_2.addInvoiceData(invoice, branch);
                     res.send({ message: "New invoice Added" });
@@ -2224,7 +2272,7 @@ function createBranchHandler(req, res) {
             switch (_a.label) {
                 case 0:
                     _a.trys.push([0, 2, , 3]);
-                    return [4 /*yield*/, branch_service_1.createBranch(req.body)];
+                    return [4 /*yield*/, branch_service_1.createBranch(__assign(__assign({}, req.body), { state: gstWithState_1.default(req.body.gstNumber) }))];
                 case 1:
                     branch = _a.sent();
                     admin_2.addBranchHandler(branch);
@@ -2240,6 +2288,28 @@ function createBranchHandler(req, res) {
     });
 }
 exports.createBranchHandler = createBranchHandler;
+function updateBranchHandler(req, res) {
+    return __awaiter(this, void 0, void 0, function () {
+        var branch, err_17;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    _a.trys.push([0, 2, , 3]);
+                    return [4 /*yield*/, branch_service_1.findAndUpdateBranch({ _id: req.body.name }, { $set: req.body }, { new: true, upsert: true })];
+                case 1:
+                    branch = _a.sent();
+                    res.send(branch);
+                    return [3 /*break*/, 3];
+                case 2:
+                    err_17 = _a.sent();
+                    checkErrors_1.default(err_17, res);
+                    return [3 /*break*/, 3];
+                case 3: return [2 /*return*/];
+            }
+        });
+    });
+}
+exports.updateBranchHandler = updateBranchHandler;
 function deleteTemplateHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
         return __generator(this, function (_a) {
@@ -2255,7 +2325,7 @@ function deleteTemplateHandler(req, res) {
 exports.deleteTemplateHandler = deleteTemplateHandler;
 function assignPrimaryEmployeeHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var session, _a, customerId, employeeId, customer, employee, conversation, participants, err_17;
+        var session, _a, customerId, employeeId, customer, employee, conversation, participants, err_18;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0: return [4 /*yield*/, mongoose_1.default.startSession()];
@@ -2329,11 +2399,11 @@ function assignPrimaryEmployeeHandler(req, res) {
                     });
                     return [3 /*break*/, 14];
                 case 12:
-                    err_17 = _b.sent();
+                    err_18 = _b.sent();
                     return [4 /*yield*/, session.abortTransaction()];
                 case 13:
                     _b.sent();
-                    checkErrors_1.default(err_17, res);
+                    checkErrors_1.default(err_18, res);
                     return [3 /*break*/, 14];
                 case 14: return [2 /*return*/];
             }
@@ -2344,7 +2414,7 @@ exports.assignPrimaryEmployeeHandler = assignPrimaryEmployeeHandler;
 function addEmployeeSickHandler(req, res) {
     var _a, _b;
     return __awaiter(this, void 0, void 0, function () {
-        var _c, employeeId, types, employee, leaveDate, err_18;
+        var _c, employeeId, types, employee, leaveDate, err_19;
         return __generator(this, function (_d) {
             switch (_d.label) {
                 case 0:
@@ -2368,8 +2438,8 @@ function addEmployeeSickHandler(req, res) {
                     _d.sent();
                     return [3 /*break*/, 4];
                 case 3:
-                    err_18 = _d.sent();
-                    checkErrors_1.default(err_18, res);
+                    err_19 = _d.sent();
+                    checkErrors_1.default(err_19, res);
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -2379,7 +2449,7 @@ function addEmployeeSickHandler(req, res) {
 exports.addEmployeeSickHandler = addEmployeeSickHandler;
 function updateEmployeeSickHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var _a, employeeId, types, sickId_1, employee, index, err_19;
+        var _a, employeeId, types, sickId_1, employee, index, err_20;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
@@ -2403,8 +2473,8 @@ function updateEmployeeSickHandler(req, res) {
                     _b.sent();
                     return [3 /*break*/, 4];
                 case 3:
-                    err_19 = _b.sent();
-                    checkErrors_1.default(err_19, res);
+                    err_20 = _b.sent();
+                    checkErrors_1.default(err_20, res);
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -2414,7 +2484,7 @@ function updateEmployeeSickHandler(req, res) {
 exports.updateEmployeeSickHandler = updateEmployeeSickHandler;
 function adminConnectMeetingHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, meetingId, meeting, token, err_20;
+        var user, meetingId, meeting, token, err_21;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -2434,8 +2504,8 @@ function adminConnectMeetingHandler(req, res) {
                     // return the token
                     return [2 /*return*/, res.json({ token: token })];
                 case 2:
-                    err_20 = _a.sent();
-                    checkErrors_1.default(err_20, res);
+                    err_21 = _a.sent();
+                    checkErrors_1.default(err_21, res);
                     return [3 /*break*/, 3];
                 case 3: return [2 /*return*/];
             }

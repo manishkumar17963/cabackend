@@ -198,6 +198,7 @@ exports.addTemplateSchema = joi_1.object({
 });
 exports.addBranchSchema = joi_1.object({
     body: joi_1.object({
+        gstNumber: joi_1.string().required(),
         name: joi_1.string().required(),
         appendId: joi_1.string().required(),
         invoiceNo: joi_1.number().required(),

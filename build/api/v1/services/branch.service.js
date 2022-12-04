@@ -39,7 +39,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.aggregateBranch = exports.deletePost = exports.findAndUpdateBranch = exports.findBranch = exports.createBranch = void 0;
+exports.aggregateBranch = exports.deletePost = exports.findAndUpdateBranch = exports.findAllBranch = exports.findBranch = exports.createBranch = void 0;
 var branch_model_1 = __importDefault(require("../models/branch.model"));
 function createBranch(input) {
     return __awaiter(this, void 0, void 0, function () {
@@ -59,6 +59,16 @@ function findBranch(query, select, options) {
     });
 }
 exports.findBranch = findBranch;
+function findAllBranch(query, select, options) {
+    if (select === void 0) { select = {}; }
+    if (options === void 0) { options = {}; }
+    return __awaiter(this, void 0, void 0, function () {
+        return __generator(this, function (_a) {
+            return [2 /*return*/, branch_model_1.default.find(query, select, options)];
+        });
+    });
+}
+exports.findAllBranch = findAllBranch;
 function findAndUpdateBranch(query, update, options) {
     return __awaiter(this, void 0, void 0, function () {
         return __generator(this, function (_a) {
