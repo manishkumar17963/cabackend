@@ -920,8 +920,9 @@ export async function startAttendanceHandler(
         });
       }
     }
+    console.log("hello date", moment().startOf("day").toDate());
     await createAttendance({
-      date: moment().startOf("day").toISOString(),
+      date: moment().startOf("day").toDate(),
       open: true,
       attendanceType: data.type,
       attendance: [],

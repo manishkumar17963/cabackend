@@ -1300,8 +1300,9 @@ function startAttendanceHandler(socket, data, callback) {
                                 })];
                         }
                     }
+                    console.log("hello date", moment_1.default().startOf("day").toDate());
                     return [4 /*yield*/, attendance_1.createAttendance({
-                            date: moment_1.default().startOf("day").toISOString(),
+                            date: moment_1.default().startOf("day").toDate(),
                             open: true,
                             attendanceType: data.type,
                             attendance: [],
