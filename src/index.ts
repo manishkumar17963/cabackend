@@ -2,13 +2,15 @@ require("dotenv").config();
 import express from "express";
 import connect from "./config/databaseConfig";
 import morgan from "morgan";
-
+import fs from "fs";
+import { Request, Response } from "express";
 import registerSocketServer from "./socket/server";
 
 import * as http from "http";
 import AdminRouter from "./api/v1/routes/admin";
 import CustomerRouter from "./api/v1/routes/customer";
 import EmployeeRouter from "./api/v1/routes/employee";
+
 import UrlRouter from "./api/v1/routes/url";
 
 const port = parseInt(process.env.PORT as string);
@@ -40,6 +42,14 @@ const start = async () => {
     app.use("/admin", AdminRouter);
     app.use("/customer", CustomerRouter);
     app.use("/employee", EmployeeRouter);
+    app.use(
+      "/.well-known/pki-validation/E707771D51DECCD5DC902E7A44ADDB85.txt",
+      (req: Request, res: Response) => {
+        res.sendFile(
+          "/home/ec2-user/development/cabackend/E707771D51DECCD5DC902E7A44ADDB85.txt"
+        );
+      }
+    );
 
     const server = http.createServer(app);
     registerSocketServer(server);

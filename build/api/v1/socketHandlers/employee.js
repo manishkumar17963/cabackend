@@ -640,6 +640,7 @@ function employeeMeetingDateHandler(socket, data) {
             switch (_a.label) {
                 case 0:
                     _a.trys.push([0, 2, , 3]);
+                    console.log("meeting", data.date);
                     user = socket.user;
                     return [4 /*yield*/, project_Service_1.aggregateProject([
                             { $match: { "assignedEmployees.employeeId": user._id } },
@@ -743,12 +744,10 @@ function employeeMeetingDateHandler(socket, data) {
                         ])];
                 case 1:
                     projects = _a.sent();
-                    console.log(projects);
                     meetings_1 = [];
                     projects.forEach(function (value) {
                         meetings_1.push.apply(meetings_1, value.meetings);
                     });
-                    console.log("meetings", meetings_1);
                     socket.emit("employee-date-meeting-result", meetings_1);
                     return [3 /*break*/, 3];
                 case 2:

@@ -678,6 +678,7 @@ async function adminMeetingDateHandler(
   data: { date: string; employeeId?: string }
 ) {
   try {
+    console.log("meeting", data.date);
     //@ts-ignore
     const user = socket.user as AdminDocument;
 

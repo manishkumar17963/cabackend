@@ -1017,6 +1017,7 @@ function adminMeetingDateHandler(socket, data) {
             switch (_a.label) {
                 case 0:
                     _a.trys.push([0, 2, , 3]);
+                    console.log("meeting", data.date);
                     user = socket.user;
                     match = {};
                     if (data.employeeId) {

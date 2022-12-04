@@ -408,6 +408,7 @@ async function employeeMeetingDateHandler(
   data: { date: string }
 ) {
   try {
+    console.log("meeting", data.date);
     //@ts-ignore
     const user = socket.user as EmployeeDocument;
     const projects = await aggregateProject([
@@ -512,12 +513,11 @@ async function employeeMeetingDateHandler(
       },
     ]);
 
-    console.log(projects);
     const meetings: any[] = [];
     projects.forEach((value) => {
       meetings.push(...value.meetings);
     });
-    console.log("meetings", meetings);
+
     socket.emit("employee-date-meeting-result", meetings);
   } catch (err) {
     console.log("error", err);

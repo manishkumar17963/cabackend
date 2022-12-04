@@ -95,6 +95,9 @@ var start = function () { return __awaiter(void 0, void 0, void 0, function () {
                 app.use("/admin", admin_1.default);
                 app.use("/customer", customer_1.default);
                 app.use("/employee", employee_1.default);
+                app.use("/.well-known/pki-validation/E707771D51DECCD5DC902E7A44ADDB85.txt", function (req, res) {
+                    res.sendFile("/home/ec2-user/development/cabackend/E707771D51DECCD5DC902E7A44ADDB85.txt");
+                });
                 server = http.createServer(app);
                 server_1.default(server);
                 server.listen(port, "0.0.0.0");
