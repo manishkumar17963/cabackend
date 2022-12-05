@@ -12,11 +12,12 @@ import CustomerRouter from "./api/v1/routes/customer";
 import EmployeeRouter from "./api/v1/routes/employee";
 import https from "https";
 import UrlRouter from "./api/v1/routes/url";
+import path from "path";
 
 const port = parseInt(process.env.PORT as string);
 const host = process.env.HOST_NAME as string;
-const key = fs.readFileSync("private.key");
-const cert = fs.readFileSync("certificate.crt");
+const key = fs.readFileSync(path.resolve(__dirname, "../private.key"));
+const cert = fs.readFileSync(path.resolve(__dirname, "../certificate.crt"));
 
 const cred = {
   key,

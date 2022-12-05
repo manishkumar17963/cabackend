@@ -70,10 +70,11 @@ var customer_1 = __importDefault(require("./api/v1/routes/customer"));
 var employee_1 = __importDefault(require("./api/v1/routes/employee"));
 var https_1 = __importDefault(require("https"));
 var url_1 = __importDefault(require("./api/v1/routes/url"));
+var path_1 = __importDefault(require("path"));
 var port = parseInt(process.env.PORT);
 var host = process.env.HOST_NAME;
-var key = fs_1.default.readFileSync("private.key");
-var cert = fs_1.default.readFileSync("certificate.crt");
+var key = fs_1.default.readFileSync(path_1.default.resolve(__dirname, "../private.key"));
+var cert = fs_1.default.readFileSync(path_1.default.resolve(__dirname, "../certificate.crt"));
 var cred = {
     key: key,
     cert: cert,
