@@ -62,16 +62,24 @@ require("dotenv").config();
 var express_1 = __importDefault(require("express"));
 var databaseConfig_1 = __importDefault(require("./config/databaseConfig"));
 var morgan_1 = __importDefault(require("morgan"));
+var fs_1 = __importDefault(require("fs"));
 var server_1 = __importDefault(require("./socket/server"));
 var http = __importStar(require("http"));
 var admin_1 = __importDefault(require("./api/v1/routes/admin"));
 var customer_1 = __importDefault(require("./api/v1/routes/customer"));
 var employee_1 = __importDefault(require("./api/v1/routes/employee"));
+var https_1 = __importDefault(require("https"));
 var url_1 = __importDefault(require("./api/v1/routes/url"));
 var port = parseInt(process.env.PORT);
 var host = process.env.HOST_NAME;
+var key = fs_1.default.readFileSync("private.key");
+var cert = fs_1.default.readFileSync("certificate.crt");
+var cred = {
+    key: key,
+    cert: cert,
+};
 var start = function () { return __awaiter(void 0, void 0, void 0, function () {
-    var app, server, err_1;
+    var app, server, httpServer, err_1;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -95,12 +103,15 @@ var start = function () { return __awaiter(void 0, void 0, void 0, function () {
                 app.use("/admin", admin_1.default);
                 app.use("/customer", customer_1.default);
                 app.use("/employee", employee_1.default);
-                app.get("/.well-known/pki-validation/3CB225326F3A551502766193BFAA35BA.txt", function (req, res) {
-                    res.sendFile("/home/ec2-user/development/cabackend/3CB225326F3A551502766193BFAA35BA.txt");
+                app.get("/hello", function (req, res) {
+                    res.send("hello manish");
                 });
                 server = http.createServer(app);
                 server_1.default(server);
                 server.listen(port, "0.0.0.0");
+                httpServer = https_1.default.createServer(cred, app);
+                httpServer.listen(8443);
+                server_1.default(httpServer);
                 return [3 /*break*/, 3];
             case 2:
                 err_1 = _a.sent();
