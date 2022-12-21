@@ -57,7 +57,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createRequestHandler = exports.customerConnectMeetingHandler = exports.createProjectForCustomerHandler = exports.approveQuotationHandler = exports.declineMeetingHandler = exports.confirmMeetingHandler = exports.requestMeetingHandler = exports.createTaskHandler = exports.getStatusHandler = exports.logoutCustomerAppHandler = exports.logoutCustomerHandler = exports.loginCustomerAppHandler = exports.loginCustomerHandler = exports.verifyCustomerHandler = exports.createCustomerHandler = void 0;
+exports.createRequestHandler = exports.customerConnectMeetingHandler = exports.createProjectForCustomerHandler = exports.approveQuotationHandler = exports.declineMeetingHandler = exports.confirmMeetingHandler = exports.requestMeetingHandler = exports.createTaskHandler = exports.getStatusHandler = exports.logoutCustomerAppHandler = exports.logoutCustomerHandler = exports.loginCustomerAppHandler = exports.loginCustomerHandler = exports.addKycHandler = exports.verifyCustomerHandler = exports.addMeetingHandler = exports.createCustomerHandler = void 0;
 var checkErrors_1 = __importDefault(require("../helpers/checkErrors"));
 var customError_1 = __importDefault(require("../helpers/customError"));
 var mongoose_1 = __importDefault(require("mongoose"));
@@ -83,6 +83,8 @@ var conversationType_1 = __importDefault(require("../enums/conversationType"));
 var admin_2 = require("../socketHandlers/admin");
 var agora_access_token_1 = require("agora-access-token");
 var gstWithState_1 = __importDefault(require("../helpers/gstWithState"));
+var meetingType_1 = __importDefault(require("../enums/meetingType"));
+var conversation_service_1 = require("../services/conversation.service");
 function createCustomerHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
         var code, phone, customer, state, err_1;
@@ -123,6 +125,68 @@ function createCustomerHandler(req, res) {
     });
 }
 exports.createCustomerHandler = createCustomerHandler;
+function addMeetingHandler(req, res) {
+    return __awaiter(this, void 0, void 0, function () {
+        var session, user, _a, conversationId, startDate, slotTime, comment, finishedDate, conversation, customer, meeting, error_1;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
+                case 0: return [4 /*yield*/, mongoose_1.default.startSession()];
+                case 1:
+                    session = _b.sent();
+                    session.startTransaction();
+                    user = req.user;
+                    _b.label = 2;
+                case 2:
+                    _b.trys.push([2, 6, , 8]);
+                    _a = req.body, conversationId = _a.conversationId, startDate = _a.startDate, slotTime = _a.slotTime, comment = _a.comment;
+                    console.log("request", req.body);
+                    finishedDate = moment_1.default(startDate).add(slotTime !== null && slotTime !== void 0 ? slotTime : 30, "minutes");
+                    return [4 /*yield*/, conversation_service_1.findConversation({
+                            _id: conversationId,
+                            conversationType: conversationType_1.default.Primary,
+                        })];
+                case 3:
+                    conversation = _b.sent();
+                    if (!conversation) {
+                        throw new customError_1.default("Bad Request", 404, "No such conversation found");
+                    }
+                    customer = conversation.participants.find(function (value) { return value.participantType == sendBy_1.default.Customer; });
+                    if (!customer) {
+                        throw new customError_1.default("Bad Request", 404, "No such customer found for this id");
+                    }
+                    return [4 /*yield*/, meeting_1.createMeeting({
+                            requestedBy: sendBy_1.default.Admin,
+                            customerConfirmed: false,
+                            creatorId: { number: user.number, name: user.companyName, id: user._id },
+                            meetingType: meetingType_1.default.Primary,
+                            conversationId: conversationId,
+                            customerId: customer.id,
+                            comment: comment,
+                            mode: meetingMode_1.default.Online,
+                            meetingStartTime: startDate,
+                            meetingEndTime: finishedDate.toDate(),
+                            slotTime: 30,
+                        })];
+                case 4:
+                    meeting = _b.sent();
+                    return [4 /*yield*/, session.commitTransaction()];
+                case 5:
+                    _b.sent();
+                    res.send(meeting);
+                    return [3 /*break*/, 8];
+                case 6:
+                    error_1 = _b.sent();
+                    return [4 /*yield*/, session.abortTransaction()];
+                case 7:
+                    _b.sent();
+                    checkErrors_1.default(error_1, res);
+                    return [3 /*break*/, 8];
+                case 8: return [2 /*return*/];
+            }
+        });
+    });
+}
+exports.addMeetingHandler = addMeetingHandler;
 function verifyCustomerHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
         var customer, token, err_2;
@@ -153,9 +217,44 @@ function verifyCustomerHandler(req, res) {
     });
 }
 exports.verifyCustomerHandler = verifyCustomerHandler;
+function addKycHandler(req, res) {
+    return __awaiter(this, void 0, void 0, function () {
+        var user, state, err_3;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    _a.trys.push([0, 2, , 3]);
+                    user = req.user;
+                    if (user.kycVerified) {
+                        throw new customError_1.default("Bad Request", 404, "Kyc already verified");
+                    }
+                    console.log("body", req.body);
+                    user.kycDetails = req.body;
+                    if (req.body.gstNumber) {
+                        state = gstWithState_1.default(req.body.gstNumber);
+                        user.state = state;
+                        user.gstNumber = req.body.gstNumber;
+                    }
+                    return [4 /*yield*/, user.save()];
+                case 1:
+                    _a.sent();
+                    res.send({
+                        message: "your kyc details is successfully saved we will notify you when we verify your details",
+                    });
+                    return [3 /*break*/, 3];
+                case 2:
+                    err_3 = _a.sent();
+                    checkErrors_1.default(err_3, res);
+                    return [3 /*break*/, 3];
+                case 3: return [2 /*return*/];
+            }
+        });
+    });
+}
+exports.addKycHandler = addKycHandler;
 function loginCustomerHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var customer, token, err_3;
+        var customer, token, err_4;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -172,8 +271,8 @@ function loginCustomerHandler(req, res) {
                     res.send({ customer: customer, token: token });
                     return [3 /*break*/, 4];
                 case 3:
-                    err_3 = _a.sent();
-                    checkErrors_1.default(err_3, res);
+                    err_4 = _a.sent();
+                    checkErrors_1.default(err_4, res);
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -183,7 +282,7 @@ function loginCustomerHandler(req, res) {
 exports.loginCustomerHandler = loginCustomerHandler;
 function loginCustomerAppHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var customer, token, err_4;
+        var customer, token, err_5;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -201,8 +300,8 @@ function loginCustomerAppHandler(req, res) {
                     res.send({ customer: customer, token: token });
                     return [3 /*break*/, 4];
                 case 3:
-                    err_4 = _a.sent();
-                    checkErrors_1.default(err_4, res);
+                    err_5 = _a.sent();
+                    checkErrors_1.default(err_5, res);
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -295,7 +394,7 @@ exports.getStatusHandler = getStatusHandler;
 function createTaskHandler(req, res) {
     var _a, _b;
     return __awaiter(this, void 0, void 0, function () {
-        var user, task, error_1;
+        var user, task, error_2;
         return __generator(this, function (_c) {
             switch (_c.label) {
                 case 0:
@@ -314,8 +413,8 @@ function createTaskHandler(req, res) {
                     });
                     return [3 /*break*/, 3];
                 case 2:
-                    error_1 = _c.sent();
-                    checkErrors_1.default(error_1, res);
+                    error_2 = _c.sent();
+                    checkErrors_1.default(error_2, res);
                     return [3 /*break*/, 3];
                 case 3: return [2 /*return*/];
             }
@@ -325,7 +424,7 @@ function createTaskHandler(req, res) {
 exports.createTaskHandler = createTaskHandler;
 function requestMeetingHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var session, _a, projectId, startDate, mode, slotTime, comment, requestedLocation, user, project, finishedDate, locationValue, meeting, error_2;
+        var session, user, _a, projectId, startDate, mode, slotTime, comment, requestedLocation, project, finishedDate, locationValue, meeting, error_3;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0: return [4 /*yield*/, mongoose_1.default.startSession()];
@@ -335,8 +434,8 @@ function requestMeetingHandler(req, res) {
                     _b.label = 2;
                 case 2:
                     _b.trys.push([2, 6, , 8]);
-                    _a = req.body, projectId = _a.projectId, startDate = _a.startDate, mode = _a.mode, slotTime = _a.slotTime, comment = _a.comment, requestedLocation = _a.requestedLocation;
                     user = req.user;
+                    _a = req.body, projectId = _a.projectId, startDate = _a.startDate, mode = _a.mode, slotTime = _a.slotTime, comment = _a.comment, requestedLocation = _a.requestedLocation;
                     return [4 /*yield*/, project_Service_1.findProject({
                             _id: projectId,
                             customerId: user._id,
@@ -351,7 +450,7 @@ function requestMeetingHandler(req, res) {
                     if (mode == meetingMode_1.default.Physical) {
                         locationValue["requestedLocation"] = requestedLocation;
                     }
-                    return [4 /*yield*/, meeting_1.createMeeting(__assign({ projectId: project._id, requestedBy: sendBy_1.default.Customer, customerConfirmed: true, customerId: project.customerId, comment: comment,
+                    return [4 /*yield*/, meeting_1.createMeeting(__assign({ projectId: project._id, requestedBy: sendBy_1.default.Customer, customerConfirmed: true, creatorId: { number: user.number, name: user.companyName, id: user._id }, customerId: project.customerId, comment: comment,
                             mode: mode, meetingStartTime: startDate, meetingEndTime: mode == meetingMode_1.default.Online ? finishedDate.toDate() : undefined, slotTime: 30 }, locationValue))];
                 case 4:
                     meeting = _b.sent();
@@ -361,11 +460,11 @@ function requestMeetingHandler(req, res) {
                     res.send(meeting);
                     return [3 /*break*/, 8];
                 case 6:
-                    error_2 = _b.sent();
+                    error_3 = _b.sent();
                     return [4 /*yield*/, session.abortTransaction()];
                 case 7:
                     _b.sent();
-                    checkErrors_1.default(error_2, res);
+                    checkErrors_1.default(error_3, res);
                     return [3 /*break*/, 8];
                 case 8: return [2 /*return*/];
             }
@@ -375,7 +474,7 @@ function requestMeetingHandler(req, res) {
 exports.requestMeetingHandler = requestMeetingHandler;
 function confirmMeetingHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var session, meetingId, customer, meeting, error_3;
+        var session, meetingId, customer, meeting, error_4;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0: return [4 /*yield*/, mongoose_1.default.startSession()];
@@ -407,13 +506,13 @@ function confirmMeetingHandler(req, res) {
                     res.send({ message: "you confirmed the meeting" });
                     return [3 /*break*/, 8];
                 case 6:
-                    error_3 = _a.sent();
+                    error_4 = _a.sent();
                     //@ts-ignore
                     return [4 /*yield*/, session.abortTransaction()];
                 case 7:
                     //@ts-ignore
                     _a.sent();
-                    checkErrors_1.default(error_3, res);
+                    checkErrors_1.default(error_4, res);
                     return [3 /*break*/, 8];
                 case 8: return [2 /*return*/];
             }
@@ -423,7 +522,7 @@ function confirmMeetingHandler(req, res) {
 exports.confirmMeetingHandler = confirmMeetingHandler;
 function declineMeetingHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var session, meetingId, customer, meeting, employee, error_4;
+        var session, meetingId, customer, meeting, employee, error_5;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0: return [4 /*yield*/, mongoose_1.default.startSession()];
@@ -464,13 +563,13 @@ function declineMeetingHandler(req, res) {
                     res.send({ message: "your meeting has been declined" });
                     return [3 /*break*/, 10];
                 case 8:
-                    error_4 = _a.sent();
+                    error_5 = _a.sent();
                     //@ts-ignore
                     return [4 /*yield*/, session.abortTransaction()];
                 case 9:
                     //@ts-ignore
                     _a.sent();
-                    checkErrors_1.default(error_4, res);
+                    checkErrors_1.default(error_5, res);
                     return [3 /*break*/, 10];
                 case 10: return [2 /*return*/];
             }
@@ -480,7 +579,7 @@ function declineMeetingHandler(req, res) {
 exports.declineMeetingHandler = declineMeetingHandler;
 function approveQuotationHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var _a, projectId, quotationId, session, project, quotation, err_5;
+        var _a, projectId, quotationId, session, project, quotation, err_6;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
@@ -522,11 +621,11 @@ function approveQuotationHandler(req, res) {
                     res.send({ message: "quotation successfully approved" });
                     return [3 /*break*/, 9];
                 case 7:
-                    err_5 = _b.sent();
+                    err_6 = _b.sent();
                     return [4 /*yield*/, session.commitTransaction()];
                 case 8:
                     _b.sent();
-                    checkErrors_1.default(err_5, res);
+                    checkErrors_1.default(err_6, res);
                     return [3 /*break*/, 9];
                 case 9: return [2 /*return*/];
             }
@@ -537,7 +636,7 @@ exports.approveQuotationHandler = approveQuotationHandler;
 function createProjectForCustomerHandler(req, res) {
     var _a;
     return __awaiter(this, void 0, void 0, function () {
-        var session, _b, projectName, startDate, expectedEndDate, description, user, input, project, admins, participants, conversations, conversation, error_5;
+        var session, _b, projectName, startDate, expectedEndDate, description, user, input, project, admins, participants, conversations, conversation, error_6;
         return __generator(this, function (_c) {
             switch (_c.label) {
                 case 0: return [4 /*yield*/, mongoose_1.default.startSession()];
@@ -613,11 +712,11 @@ function createProjectForCustomerHandler(req, res) {
                     });
                     return [3 /*break*/, 9];
                 case 7:
-                    error_5 = _c.sent();
+                    error_6 = _c.sent();
                     return [4 /*yield*/, session.abortTransaction()];
                 case 8:
                     _c.sent();
-                    checkErrors_1.default(error_5, res);
+                    checkErrors_1.default(error_6, res);
                     return [3 /*break*/, 9];
                 case 9: return [2 /*return*/];
             }
@@ -627,7 +726,7 @@ function createProjectForCustomerHandler(req, res) {
 exports.createProjectForCustomerHandler = createProjectForCustomerHandler;
 function customerConnectMeetingHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, meetingId, meeting, token, err_6;
+        var user, meetingId, meeting, token, err_7;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -649,8 +748,8 @@ function customerConnectMeetingHandler(req, res) {
                     // return the token
                     return [2 /*return*/, res.json({ token: token })];
                 case 2:
-                    err_6 = _a.sent();
-                    checkErrors_1.default(err_6, res);
+                    err_7 = _a.sent();
+                    checkErrors_1.default(err_7, res);
                     return [3 /*break*/, 3];
                 case 3: return [2 /*return*/];
             }

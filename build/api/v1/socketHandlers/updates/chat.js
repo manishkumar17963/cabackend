@@ -104,9 +104,7 @@ var updateChatHistory = function (conversationId, socket, conversationType, rece
                 messages = _c.sent();
                 activeConnections = serverStore.getActiveConnections(userDetails._id.toString());
                 activeConnections.forEach(function (socketId) {
-                    var _a;
-                    (_a = serverStore
-                        .getSocketServerInstance()) === null || _a === void 0 ? void 0 : _a.to(socketId).emit("direct-chat-history", {
+                    socket.emit("direct-chat-history", {
                         messages: messages,
                         conversationId: conversationId,
                         receiverId: receiverId,

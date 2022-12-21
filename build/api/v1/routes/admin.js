@@ -41,6 +41,7 @@ AdminRouter.post("/add/comment", [validateRequest_1.default(admin_3.addCommentSc
 AdminRouter.put("/approve/holiday", [validateRequest_1.default(admin_3.approveHolidaySchema), auth_1.default(admin_2.default)], admin_1.approveHolidayHandler);
 AdminRouter.put("/deny/holiday", [validateRequest_1.default(admin_3.approveHolidaySchema), auth_1.default(admin_2.default)], admin_1.denyHolidayHandler);
 AdminRouter.post("/add/meeting", [validateRequest_1.default(admin_3.requestMeetingSchema), auth_1.default(admin_2.default)], admin_1.requestMeetingHandler);
+AdminRouter.post("/add/other/meeting", [auth_1.default(admin_2.default)], admin_1.addMeetingHandler);
 AdminRouter.put("/update/meeting", [validateRequest_1.default(admin_3.updateMeetingEmployeeSchema), auth_1.default(admin_2.default)], admin_1.updateEmployeeMeetingHandler);
 AdminRouter.put("/decline/meeting/:meetingId", [auth_1.default(admin_2.default)], admin_1.declineMeetingHandler);
 AdminRouter.put("/complete/meeting/:meetingId", [auth_1.default(admin_2.default)], admin_1.completeMeetingHandler);

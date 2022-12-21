@@ -53,7 +53,7 @@ const InvoiceSchema = new mongoose.Schema({
   cgst: { type: Number, required: true },
   sgst: { type: Number, required: true },
   actualPaymentDate: Date,
-  paymentAmount: Number,
+  amount: { type: Number, required: true },
   paymentStatus: {
     enum: convertEnumToArray(PaymentStatus),
     type: String,

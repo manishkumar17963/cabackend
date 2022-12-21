@@ -6,11 +6,21 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var mongoose_1 = __importDefault(require("mongoose"));
 var priority_1 = __importDefault(require("../enums/priority"));
 var taskStatus_1 = __importDefault(require("../enums/taskStatus"));
+var workFrom_1 = __importDefault(require("../enums/workFrom"));
 var enumArray_1 = __importDefault(require("../helpers/enumArray"));
+var common_1 = require("./common");
 var TimeLogSchema = new mongoose_1.default.Schema({
     startTime: { type: Date, required: true },
     endTime: { type: Date },
     employeeId: { type: String },
+    workFrom: {
+        type: String,
+        enum: enumArray_1.default(workFrom_1.default),
+        required: true,
+    },
+    location: {
+        type: common_1.LocationSchema,
+    },
 });
 var PreviousEmployeeSchema = new mongoose_1.default.Schema({
     assignedDate: { type: Date, required: true },

@@ -4,11 +4,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 var _this = this;
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.participantSchema = void 0;
 var mongoose_1 = __importDefault(require("mongoose"));
 var enumArray_1 = __importDefault(require("../helpers/enumArray"));
 var sendBy_1 = __importDefault(require("../enums/sendBy"));
 var conversationType_1 = __importDefault(require("../enums/conversationType"));
-var participantSchema = new mongoose_1.default.Schema({
+exports.participantSchema = new mongoose_1.default.Schema({
     id: { type: String, required: true },
     participantType: {
         type: String,
@@ -24,7 +25,7 @@ var participantSchema = new mongoose_1.default.Schema({
     },
 }, { _id: false, timestamps: false });
 var ConversationSchema = new mongoose_1.default.Schema({
-    participants: [participantSchema],
+    participants: [exports.participantSchema],
     conversationType: {
         type: String,
         required: true,

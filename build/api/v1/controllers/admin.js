@@ -57,7 +57,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.adminConnectMeetingHandler = exports.updateEmployeeSickHandler = exports.addEmployeeSickHandler = exports.assignPrimaryEmployeeHandler = exports.deleteTemplateHandler = exports.updateBranchHandler = exports.createBranchHandler = exports.createTemplateHandler = exports.stopAttendanceHandler = exports.startAttendanceHandler = exports.removeHolidayHandler = exports.addHolidayHandler = exports.completeMeetingHandler = exports.declineMeetingHandler = exports.updateEmployeeMeetingHandler = exports.requestMeetingHandler = exports.toggleApprovalAttendanceHandler = exports.updateTaskHandler = exports.denyHolidayHandler = exports.approveHolidayHandler = exports.addCommentHandler = exports.changePaymentStatusManuallyHandler = exports.addInvoiceHandler = exports.addQuotationHandler = exports.updateTaskStatusHandler = exports.declinedTaskHandler = exports.completeTaskHandler = exports.updateStatusHandler = exports.declinedProjectHandler = exports.completeProjectHandler = exports.removeEmployeeFromProjectHandler = exports.removeEmployeeFromTaskHandler = exports.assignTaskToEmployeeHandler = exports.createTaskCustomerHandler = exports.changePrimaryEmployeeHandler = exports.updateProjectHandler = exports.createProjectForCustomerHandler = exports.assignEmployeeToCustomerHandler = exports.getStatusHandler = exports.logoutAdminHandler = exports.loginAdminHandler = exports.verifyForgotOtpHandler = exports.forgotPasswordHandler = exports.verifyAdminHandler = exports.createAdminHandler = void 0;
+exports.adminConnectMeetingHandler = exports.updateEmployeeSickHandler = exports.addEmployeeSickHandler = exports.assignPrimaryEmployeeHandler = exports.deleteTemplateHandler = exports.updateBranchHandler = exports.createBranchHandler = exports.createTemplateHandler = exports.stopAttendanceHandler = exports.startAttendanceHandler = exports.removeHolidayHandler = exports.addHolidayHandler = exports.completeMeetingHandler = exports.declineMeetingHandler = exports.updateEmployeeMeetingHandler = exports.addMeetingHandler = exports.requestMeetingHandler = exports.toggleApprovalAttendanceHandler = exports.updateTaskHandler = exports.denyHolidayHandler = exports.approveHolidayHandler = exports.addCommentHandler = exports.changePaymentStatusManuallyHandler = exports.addInvoiceHandler = exports.addQuotationHandler = exports.updateTaskStatusHandler = exports.declinedTaskHandler = exports.completeTaskHandler = exports.updateStatusHandler = exports.declinedProjectHandler = exports.completeProjectHandler = exports.removeEmployeeFromProjectHandler = exports.removeEmployeeFromTaskHandler = exports.assignTaskToEmployeeHandler = exports.createTaskCustomerHandler = exports.changePrimaryEmployeeHandler = exports.updateProjectHandler = exports.createProjectForCustomerHandler = exports.assignEmployeeToCustomerHandler = exports.getStatusHandler = exports.logoutAdminHandler = exports.loginAdminHandler = exports.verifyForgotOtpHandler = exports.forgotPasswordHandler = exports.verifyAdminHandler = exports.createAdminHandler = void 0;
 var checkErrors_1 = __importDefault(require("../helpers/checkErrors"));
 var customError_1 = __importDefault(require("../helpers/customError"));
 var agora_access_token_1 = require("agora-access-token");
@@ -1786,13 +1786,14 @@ function toggleApprovalAttendanceHandler(req, res) {
 exports.toggleApprovalAttendanceHandler = toggleApprovalAttendanceHandler;
 function requestMeetingHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var session, _a, projectId, startDate, mode, slotTime, endDate, comment, requestedLocation, employeeId, project, finishedDate, employee, invalid, locationValue, meeting, error_18;
+        var session, admin, _a, projectId, startDate, mode, slotTime, endDate, comment, requestedLocation, employeeId, project, finishedDate, employee, invalid, locationValue, meeting, error_18;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0: return [4 /*yield*/, mongoose_1.default.startSession()];
                 case 1:
                     session = _b.sent();
                     session.startTransaction();
+                    admin = req.user;
                     _b.label = 2;
                 case 2:
                     _b.trys.push([2, 8, , 10]);
@@ -1831,7 +1832,7 @@ function requestMeetingHandler(req, res) {
                     if (mode == meetingMode_1.default.Physical) {
                         locationValue["requestedLocation"] = requestedLocation;
                     }
-                    return [4 /*yield*/, meeting_1.createMeeting(__assign({ employeeId: employee === null || employee === void 0 ? void 0 : employee._id, projectId: project._id, requestedBy: sendBy_1.default.Admin, customerConfirmed: false, employeeHistory: employee
+                    return [4 /*yield*/, meeting_1.createMeeting(__assign({ employeeId: employee === null || employee === void 0 ? void 0 : employee._id, creatorId: { number: admin.number, name: admin.username, id: admin._id }, projectId: project._id, requestedBy: sendBy_1.default.Admin, customerConfirmed: false, employeeHistory: employee
                                 ? [{ status: meeting_2.MeetingEmployeeAction.Pending, employeeId: employee._id }]
                                 : [], customerId: project.customerId, comment: comment, mode: mode, meetingStartTime: startDate, meetingEndTime: mode == meetingMode_1.default.Online ? finishedDate.toDate() : endDate, slotTime: 30 }, locationValue))];
                 case 6:
@@ -1854,6 +1855,56 @@ function requestMeetingHandler(req, res) {
     });
 }
 exports.requestMeetingHandler = requestMeetingHandler;
+function addMeetingHandler(req, res) {
+    return __awaiter(this, void 0, void 0, function () {
+        var session, admin, _a, meetingType, participants, conversationId, startDate, projectId, slotTime, comment, finishedDate, meeting, error_19;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
+                case 0: return [4 /*yield*/, mongoose_1.default.startSession()];
+                case 1:
+                    session = _b.sent();
+                    session.startTransaction();
+                    admin = req.user;
+                    _b.label = 2;
+                case 2:
+                    _b.trys.push([2, 5, , 7]);
+                    _a = req.body, meetingType = _a.meetingType, participants = _a.participants, conversationId = _a.conversationId, startDate = _a.startDate, projectId = _a.projectId, slotTime = _a.slotTime, comment = _a.comment;
+                    console.log("request", req.body);
+                    finishedDate = moment_1.default(startDate).add(slotTime !== null && slotTime !== void 0 ? slotTime : 30, "minutes");
+                    return [4 /*yield*/, meeting_1.createMeeting({
+                            requestedBy: sendBy_1.default.Admin,
+                            customerConfirmed: false,
+                            creatorId: { number: admin.number, name: admin.username, id: admin._id },
+                            meetingType: meetingType,
+                            conversationId: conversationId,
+                            participants: participants,
+                            projectId: projectId,
+                            comment: comment,
+                            mode: meetingMode_1.default.Online,
+                            meetingStartTime: startDate,
+                            meetingEndTime: finishedDate.toDate(),
+                            slotTime: 30,
+                        })];
+                case 3:
+                    meeting = _b.sent();
+                    return [4 /*yield*/, session.commitTransaction()];
+                case 4:
+                    _b.sent();
+                    res.send(meeting);
+                    return [3 /*break*/, 7];
+                case 5:
+                    error_19 = _b.sent();
+                    return [4 /*yield*/, session.abortTransaction()];
+                case 6:
+                    _b.sent();
+                    checkErrors_1.default(error_19, res);
+                    return [3 /*break*/, 7];
+                case 7: return [2 /*return*/];
+            }
+        });
+    });
+}
+exports.addMeetingHandler = addMeetingHandler;
 function updateEmployeeMeetingHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
         var session, _a, meetingId, employeeId, meeting, employee, invalid, employee_3, err_11;
@@ -1921,7 +1972,7 @@ function updateEmployeeMeetingHandler(req, res) {
 exports.updateEmployeeMeetingHandler = updateEmployeeMeetingHandler;
 function declineMeetingHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var session, meeting, employee, error_19;
+        var session, meeting, employee, error_20;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0: return [4 /*yield*/, mongoose_1.default.startSession()];
@@ -1959,13 +2010,13 @@ function declineMeetingHandler(req, res) {
                     res.send({ message: "your meeting has been declined" });
                     return [3 /*break*/, 10];
                 case 8:
-                    error_19 = _a.sent();
+                    error_20 = _a.sent();
                     //@ts-ignore
                     return [4 /*yield*/, session.abortTransaction()];
                 case 9:
                     //@ts-ignore
                     _a.sent();
-                    checkErrors_1.default(error_19, res);
+                    checkErrors_1.default(error_20, res);
                     return [3 /*break*/, 10];
                 case 10: return [2 /*return*/];
             }
@@ -1975,7 +2026,7 @@ function declineMeetingHandler(req, res) {
 exports.declineMeetingHandler = declineMeetingHandler;
 function completeMeetingHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var session, meeting, error_20;
+        var session, meeting, error_21;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0: return [4 /*yield*/, mongoose_1.default.startSession()];
@@ -2010,13 +2061,13 @@ function completeMeetingHandler(req, res) {
                     res.send({ message: "your meeting has been completed" });
                     return [3 /*break*/, 10];
                 case 8:
-                    error_20 = _a.sent();
+                    error_21 = _a.sent();
                     //@ts-ignore
                     return [4 /*yield*/, session.abortTransaction()];
                 case 9:
                     //@ts-ignore
                     _a.sent();
-                    checkErrors_1.default(error_20, res);
+                    checkErrors_1.default(error_21, res);
                     return [3 /*break*/, 10];
                 case 10: return [2 /*return*/];
             }
@@ -2119,7 +2170,7 @@ function addHolidayHandler(req, res) {
 exports.addHolidayHandler = addHolidayHandler;
 function removeHolidayHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var session, admin, holiday, error_21;
+        var session, admin, holiday, error_22;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0: return [4 /*yield*/, mongoose_1.default.startSession()];
@@ -2156,11 +2207,11 @@ function removeHolidayHandler(req, res) {
                     res.send({ message: "holiday for " + (holiday === null || holiday === void 0 ? void 0 : holiday.description) + " is removed" });
                     return [3 /*break*/, 9];
                 case 7:
-                    error_21 = _a.sent();
+                    error_22 = _a.sent();
                     return [4 /*yield*/, session.abortTransaction()];
                 case 8:
                     _a.sent();
-                    checkErrors_1.default(error_21, res);
+                    checkErrors_1.default(error_22, res);
                     return [3 /*break*/, 9];
                 case 9: return [2 /*return*/];
             }

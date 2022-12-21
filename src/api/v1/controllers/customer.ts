@@ -51,6 +51,8 @@ import {
 import { AdminDocument } from "../models/admin";
 import { RtcRole, RtcTokenBuilder } from "agora-access-token";
 import getStateByGstNumber from "../helpers/gstWithState";
+import MeetingType from "../enums/meetingType";
+import { findConversation } from "../services/conversation.service";
 
 export async function createCustomerHandler(req: Request, res: Response) {
   try {
@@ -81,6 +83,73 @@ export async function createCustomerHandler(req: Request, res: Response) {
   }
 }
 
+export async function addMeetingHandler(req: Request, res: Response) {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  const user = req.user! as CustomerDocument;
+  try {
+    let {
+      conversationId,
+      startDate,
+
+      slotTime,
+
+      comment,
+    }: {
+      conversationId?: mongoose.Types.ObjectId;
+      startDate: Date;
+
+      comment?: string;
+      slotTime?: number;
+    } = req.body;
+    console.log("request", req.body);
+
+    const finishedDate = moment(startDate).add(slotTime ?? 30, "minutes");
+
+    // employee.schdule.push({
+    //   startTime: startDate,
+    //   endTime: finishedDate.toDate(),
+    //   taskId: task._id,
+    // });
+    const conversation = await findConversation({
+      _id: conversationId,
+      conversationType: ConversationType.Primary,
+    });
+    if (!conversation) {
+      throw new CustomError("Bad Request", 404, "No such conversation found");
+    }
+    const customer = conversation.participants.find(
+      (value) => value.participantType == SendBy.Customer
+    );
+    if (!customer) {
+      throw new CustomError(
+        "Bad Request",
+        404,
+        "No such customer found for this id"
+      );
+    }
+    const meeting = await createMeeting({
+      requestedBy: SendBy.Admin,
+      customerConfirmed: false,
+
+      creatorId: { number: user.number, name: user.companyName, id: user._id },
+      meetingType: MeetingType.Primary,
+      conversationId,
+      customerId: customer.id,
+      comment: comment,
+      mode: MeetingMode.Online,
+      meetingStartTime: startDate,
+      meetingEndTime: finishedDate.toDate(),
+      slotTime: 30,
+    });
+    await session.commitTransaction();
+    res.send(meeting);
+  } catch (error) {
+    await session.abortTransaction();
+    checkError(error, res);
+  }
+}
+
 export async function verifyCustomerHandler(req: Request, res: Response) {
   try {
     console.log(req.body);
@@ -95,6 +164,32 @@ export async function verifyCustomerHandler(req: Request, res: Response) {
     }
     const token = await customer.generateAuthToken(req.body.webToken);
     res.status(200).send({ customer, token });
+  } catch (err) {
+    checkError(err, res);
+  }
+}
+
+export async function addKycHandler(req: Request, res: Response) {
+  try {
+    const user = req.user! as CustomerDocument;
+
+    if (user.kycVerified) {
+      throw new CustomError("Bad Request", 404, "Kyc already verified");
+    }
+    console.log("body", req.body);
+    user.kycDetails = req.body;
+
+    if (req.body.gstNumber) {
+      const state = getStateByGstNumber(req.body.gstNumber);
+      user.state = state;
+      user.gstNumber = req.body.gstNumber;
+    }
+
+    await user.save();
+    res.send({
+      message:
+        "your kyc details is successfully saved we will notify you when we verify your details",
+    });
   } catch (err) {
     checkError(err, res);
   }
@@ -238,6 +333,7 @@ export async function requestMeetingHandler(req: Request, res: Response) {
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
+    const user = req.user! as CustomerDocument;
     let {
       projectId,
       startDate,
@@ -255,7 +351,7 @@ export async function requestMeetingHandler(req: Request, res: Response) {
       slotTime?: number;
       requestedLocation?: PointLocation;
     } = req.body;
-    const user = req.user! as CustomerDocument;
+
     const project = await findProject({
       _id: projectId,
       customerId: user._id,
@@ -279,7 +375,7 @@ export async function requestMeetingHandler(req: Request, res: Response) {
       projectId: project._id,
       requestedBy: SendBy.Customer,
       customerConfirmed: true,
-
+      creatorId: { number: user.number, name: user.companyName, id: user._id },
       customerId: project.customerId,
       comment,
       mode,

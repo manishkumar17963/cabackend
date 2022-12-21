@@ -65,15 +65,12 @@ const updateChatHistory = async (
   );
 
   activeConnections.forEach((socketId) => {
-    serverStore
-      .getSocketServerInstance()
-      ?.to(socketId)
-      .emit("direct-chat-history", {
-        messages: messages,
-        conversationId,
-        receiverId,
-        conversationType,
-      });
+    socket.emit("direct-chat-history", {
+      messages: messages,
+      conversationId,
+      receiverId,
+      conversationType,
+    });
   });
 };
 

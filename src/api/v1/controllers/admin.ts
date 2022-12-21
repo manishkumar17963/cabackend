@@ -113,6 +113,7 @@ import {
 } from "../socketHandlers/admin";
 import EmployeeRole from "../enums/role";
 import getStateByGstNumber from "../helpers/gstWithState";
+import MeetingType from "../enums/meetingType";
 
 export async function createAdminHandler(req: Request, res: Response) {
   try {
@@ -1380,6 +1381,7 @@ export async function addInvoiceHandler(req: Request, res: Response) {
     } is completed and admin initiate the payment of ${amount},please pay before ${moment(
       req.body.expectedPaymentDate
     ).format("DD-MM-YYYY")}`;
+
     addInvoiceData(invoice, branch);
     res.send({ message: "New invoice Added" });
   } catch (err) {
@@ -1674,6 +1676,7 @@ export async function toggleApprovalAttendanceHandler(
 export async function requestMeetingHandler(req: Request, res: Response) {
   const session = await mongoose.startSession();
   session.startTransaction();
+  const admin = req.user! as AdminDocument;
   try {
     let {
       projectId,
@@ -1729,17 +1732,13 @@ export async function requestMeetingHandler(req: Request, res: Response) {
       }
     }
 
-    // employee.schdule.push({
-    //   startTime: startDate,
-    //   endTime: finishedDate.toDate(),
-    //   taskId: task._id,
-    // });
     const locationValue: { [key: string]: any } = {};
     if (mode == MeetingMode.Physical) {
       locationValue["requestedLocation"] = requestedLocation;
     }
     const meeting = await createMeeting({
       employeeId: employee?._id,
+      creatorId: { number: admin.number, name: admin.username, id: admin._id },
       projectId: project._id,
       requestedBy: SendBy.Admin,
       customerConfirmed: false,
@@ -1754,6 +1753,63 @@ export async function requestMeetingHandler(req: Request, res: Response) {
         mode == MeetingMode.Online ? finishedDate.toDate() : endDate,
       slotTime: 30,
       ...locationValue,
+    });
+    await session.commitTransaction();
+    res.send(meeting);
+  } catch (error) {
+    await session.abortTransaction();
+    checkError(error, res);
+  }
+}
+
+export async function addMeetingHandler(req: Request, res: Response) {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  const admin = req.user! as AdminDocument;
+  try {
+    let {
+      meetingType,
+      participants,
+      conversationId,
+      startDate,
+      projectId,
+      slotTime,
+
+      comment,
+    }: {
+      conversationId?: mongoose.Types.ObjectId;
+      startDate: Date;
+      meetingType: MeetingType;
+      participants?: Participant[];
+      projectId: mongoose.Types.ObjectId;
+      comment?: string;
+      slotTime?: number;
+      requestedLocation?: PointLocation;
+      employeeId?: string;
+    } = req.body;
+    console.log("request", req.body);
+
+    const finishedDate = moment(startDate).add(slotTime ?? 30, "minutes");
+
+    // employee.schdule.push({
+    //   startTime: startDate,
+    //   endTime: finishedDate.toDate(),
+    //   taskId: task._id,
+    // });
+
+    const meeting = await createMeeting({
+      requestedBy: SendBy.Admin,
+      customerConfirmed: false,
+      creatorId: { number: admin.number, name: admin.username, id: admin._id },
+      meetingType,
+      conversationId,
+      participants,
+      projectId: projectId,
+      comment: comment,
+      mode: MeetingMode.Online,
+      meetingStartTime: startDate,
+      meetingEndTime: finishedDate.toDate(),
+      slotTime: 30,
     });
     await session.commitTransaction();
     res.send(meeting);

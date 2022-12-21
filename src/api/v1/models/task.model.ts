@@ -3,8 +3,12 @@ import mongoose, { mongo } from "mongoose";
 import Priority from "../enums/priority";
 
 import ProjectStatus from "../enums/taskStatus";
+import WorkFrom from "../enums/workFrom";
 import convertEnumToArray from "../helpers/enumArray";
+import Location from "../interfaces/location";
+import PointLocation from "../interfaces/pointLocation";
 import { CommentDocument } from "./comment";
+import { LocationSchema, PointLocationSchema } from "./common";
 
 export interface TaskInput {
   assignedEmployee?: string;
@@ -20,6 +24,9 @@ export interface TaskInput {
 }
 
 export interface ITimeLog {
+  workFrom: WorkFrom;
+  location?: Location;
+
   startTime: Date;
   endTime?: Date;
   employeeId: string;
@@ -43,6 +50,14 @@ var TimeLogSchema = new mongoose.Schema({
   startTime: { type: Date, required: true },
   endTime: { type: Date },
   employeeId: { type: String },
+  workFrom: {
+    type: String,
+    enum: convertEnumToArray(WorkFrom),
+    required: true,
+  },
+  location: {
+    type: LocationSchema,
+  },
 });
 
 var PreviousEmployeeSchema = new mongoose.Schema({

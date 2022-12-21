@@ -27,7 +27,7 @@ var InvoiceSchema = new mongoose_1.default.Schema({
     cgst: { type: Number, required: true },
     sgst: { type: Number, required: true },
     actualPaymentDate: Date,
-    paymentAmount: Number,
+    amount: { type: Number, required: true },
     paymentStatus: {
         enum: enumArray_1.default(paymentStatus_1.default),
         type: String,

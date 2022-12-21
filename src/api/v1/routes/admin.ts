@@ -4,6 +4,7 @@ import {
   addEmployeeSickHandler,
   addHolidayHandler,
   addInvoiceHandler,
+  addMeetingHandler,
   addQuotationHandler,
   adminConnectMeetingHandler,
   approveHolidayHandler,
@@ -221,6 +222,12 @@ AdminRouter.post(
   "/add/meeting",
   [validate(requestMeetingSchema), authRequired(Admin)],
   requestMeetingHandler
+);
+
+AdminRouter.post(
+  "/add/other/meeting",
+  [authRequired(Admin)],
+  addMeetingHandler
 );
 
 AdminRouter.put(

@@ -65,6 +65,7 @@ var attendanceType_1 = __importDefault(require("../enums/attendanceType"));
 var conversationType_1 = __importDefault(require("../enums/conversationType"));
 var holidayStatus_1 = __importDefault(require("../enums/holidayStatus"));
 var meetingStatus_1 = __importDefault(require("../enums/meetingStatus"));
+var meetingType_1 = __importDefault(require("../enums/meetingType"));
 var sendBy_1 = __importDefault(require("../enums/sendBy"));
 var taskStatus_1 = __importDefault(require("../enums/taskStatus"));
 var checkErrors_1 = require("../helpers/checkErrors");
@@ -327,10 +328,10 @@ function employeeSocketHandler(socket) {
                 }
             });
         }); });
-        socket.on("employee-date-meeting", function (data) { return __awaiter(_this, void 0, void 0, function () {
+        socket.on("employee-date-meeting", function (data, callback) { return __awaiter(_this, void 0, void 0, function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
-                    case 0: return [4 /*yield*/, employeeMeetingDateHandler(socket, data)];
+                    case 0: return [4 /*yield*/, employeeMeetingDateHandler(socket, data, callback)];
                     case 1:
                         _a.sent();
                         return [2 /*return*/];
@@ -415,18 +416,30 @@ function taskActionHandler(socket, data, callback) {
                         })];
                 case 1:
                     tasks = _a.sent();
-                    console.log("tasks", tasks, data);
+                    console.log("tasks", data);
                     if (!tasks) {
                         throw new customError_1.default("Bad Request", 404, "No such task found");
                     }
                     timeLog = tasks === null || tasks === void 0 ? void 0 : tasks.timeLog[0];
                     if (!timeLog) {
-                        tasks.timeLog = [{ startTime: moment_1.default().toDate(), employeeId: user._id }];
+                        tasks.timeLog = [
+                            {
+                                startTime: moment_1.default().toDate(),
+                                employeeId: user._id,
+                                workFrom: data.workFrom,
+                                location: data.location,
+                            },
+                        ];
                     }
                     else {
                         if (timeLog.endTime) {
                             tasks.timeLog = __spreadArrays([
-                                { startTime: moment_1.default().toDate(), employeeId: user._id }
+                                {
+                                    startTime: moment_1.default().toDate(),
+                                    employeeId: user._id,
+                                    workFrom: data.workFrom,
+                                    location: data.location,
+                                }
                             ], tasks.timeLog);
                         }
                         else {
@@ -439,6 +452,7 @@ function taskActionHandler(socket, data, callback) {
                     return [3 /*break*/, 4];
                 case 3:
                     err_2 = _a.sent();
+                    console.log(err_2);
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -633,13 +647,13 @@ function confirmMeetingHandler(socket, data) {
         });
     });
 }
-function employeeMeetingDateHandler(socket, data) {
+function employeeMeetingDateHandler(socket, data, callback) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, projects, meetings_1, err_6;
+        var user, projects, directMeeting, meetings_1, err_6;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    _a.trys.push([0, 2, , 3]);
+                    _a.trys.push([0, 3, , 4]);
                     console.log("meeting", data.date);
                     user = socket.user;
                     return [4 /*yield*/, project_Service_1.aggregateProject([
@@ -680,6 +694,12 @@ function employeeMeetingDateHandler(socket, data) {
                                                             $and: [
                                                                 { $eq: ["$$projectId", "$projectId"] },
                                                                 { $eq: ["$$primary", true] },
+                                                            ],
+                                                        },
+                                                        {
+                                                            $and: [
+                                                                { $eq: ["$$projectId", "$projectId"] },
+                                                                { $eq: ["$meetingType", meetingType_1.default.Conversation] },
                                                             ],
                                                         },
                                                     ],
@@ -736,6 +756,50 @@ function employeeMeetingDateHandler(socket, data) {
                                                 as: "customer",
                                             },
                                         },
+                                        {
+                                            $lookup: {
+                                                from: "conversations",
+                                                let: { conversationId: "$conversationId" },
+                                                pipeline: [
+                                                    {
+                                                        $match: {
+                                                            $expr: {
+                                                                $eq: ["$_id", "$$conversationId"],
+                                                            },
+                                                        },
+                                                    },
+                                                    {
+                                                        $project: {
+                                                            participants: 1,
+                                                        },
+                                                    },
+                                                ],
+                                                as: "conversation",
+                                            },
+                                        },
+                                        {
+                                            $unwind: {
+                                                path: "$conversation",
+                                                preserveNullAndEmptyArrays: true,
+                                            },
+                                        },
+                                        {
+                                            $addFields: {
+                                                participants: {
+                                                    $cond: {
+                                                        if: {
+                                                            $or: [
+                                                                { $eq: [meetingType_1.default.Conversation, "$meetingType"] },
+                                                                { $eq: [meetingType_1.default.Primary, "$meetingType"] },
+                                                            ],
+                                                        },
+                                                        then: "$conversation.participants",
+                                                        else: "$participants",
+                                                    },
+                                                },
+                                            },
+                                        },
+                                        { $project: { conversation: 0 } },
                                         { $sort: { createdAt: -1 } },
                                     ],
                                     as: "meetings",
@@ -744,17 +808,148 @@ function employeeMeetingDateHandler(socket, data) {
                         ])];
                 case 1:
                     projects = _a.sent();
+                    return [4 /*yield*/, meeting_2.aggregateMeeting([
+                            {
+                                $match: {
+                                    meetingType: { $in: [meetingType_1.default.Direct, meetingType_1.default.Primary] },
+                                    meetingStartTime: {
+                                        $gte: moment_1.default(data.date).toDate(),
+                                        $lt: moment_1.default(data.date).add(1, "day").toDate(),
+                                    },
+                                },
+                            },
+                            {
+                                $lookup: {
+                                    from: "conversations",
+                                    let: { conversationId: "$conversationId" },
+                                    pipeline: [
+                                        {
+                                            $match: {
+                                                $expr: {
+                                                    $eq: ["$_id", "$$conversationId"],
+                                                },
+                                            },
+                                        },
+                                        {
+                                            $project: {
+                                                participants: 1,
+                                            },
+                                        },
+                                    ],
+                                    as: "conversation",
+                                },
+                            },
+                            {
+                                $unwind: {
+                                    path: "$conversation",
+                                    preserveNullAndEmptyArrays: true,
+                                },
+                            },
+                            {
+                                $addFields: {
+                                    participants: {
+                                        $cond: {
+                                            if: {
+                                                $or: [
+                                                    { $eq: [meetingType_1.default.Conversation, "$meetingType"] },
+                                                    { $eq: [meetingType_1.default.Primary, "$meetingType"] },
+                                                ],
+                                            },
+                                            then: "$conversation.participants",
+                                            else: "$participants",
+                                        },
+                                    },
+                                },
+                            },
+                            {
+                                $match: {
+                                    "participants.id": user._id,
+                                },
+                            },
+                            { $sort: { createdAt: -1 } },
+                        ])];
+                case 2:
+                    directMeeting = _a.sent();
+                    // const meetings = await aggregateMeeting([
+                    //   {
+                    //     $match: {
+                    //       $or: [
+                    //         { "participants.id": user._id },
+                    //         {
+                    //           meetingType: {
+                    //             $in: [MeetingType.Conversation, MeetingType.Primary],
+                    //           },
+                    //         },
+                    //       ],
+                    //       meetingStartTime: {
+                    //         $gte: moment(data.date).toDate(),
+                    //         $lt: moment(data.date).add(1, "day").toDate(),
+                    //       },
+                    //     },
+                    //   },
+                    //   {
+                    //     $lookup: {
+                    //       from: "employees",
+                    //       let: { employeeId: "$employeeId" },
+                    //       pipeline: [
+                    //         {
+                    //           $match: {
+                    //             $expr: {
+                    //               $eq: ["$_id", "$$employeeId"],
+                    //             },
+                    //           },
+                    //         },
+                    //         {
+                    //           $project: {
+                    //             _id: 1,
+                    //             username: 1,
+                    //             profileUri: 1,
+                    //             number: 1,
+                    //           },
+                    //         },
+                    //       ],
+                    //       as: "employee",
+                    //     },
+                    //   },
+                    //   {
+                    //     $lookup: {
+                    //       from: "customers",
+                    //       let: { customerId: "$customerId" },
+                    //       pipeline: [
+                    //         {
+                    //           $match: {
+                    //             $expr: {
+                    //               $eq: ["$_id", "$$customerId"],
+                    //             },
+                    //           },
+                    //         },
+                    //         {
+                    //           $project: {
+                    //             _id: 1,
+                    //             username: 1,
+                    //             companyName: 1,
+                    //             number: 1,
+                    //             profileUri: 1,
+                    //           },
+                    //         },
+                    //       ],
+                    //       as: "customer",
+                    //     },
+                    //   },
+                    //   { $sort: { createdAt: -1 } },
+                    // ]);
+                    console.log("directMee", directMeeting);
                     meetings_1 = [];
                     projects.forEach(function (value) {
                         meetings_1.push.apply(meetings_1, value.meetings);
                     });
-                    socket.emit("employee-date-meeting-result", meetings_1);
-                    return [3 /*break*/, 3];
-                case 2:
+                    callback({ status: 200, data: __spreadArrays(meetings_1, directMeeting) });
+                    return [3 /*break*/, 4];
+                case 3:
                     err_6 = _a.sent();
                     console.log("error", err_6);
-                    return [3 /*break*/, 3];
-                case 3: return [2 /*return*/];
+                    return [3 /*break*/, 4];
+                case 4: return [2 /*return*/];
             }
         });
     });
@@ -1381,18 +1576,21 @@ function employeeProjectHandler(socket, data) {
 }
 function initialEmployeeDataHandler(socket) {
     return __awaiter(this, void 0, void 0, function () {
-        var branches, templates, employees, admins, err_18;
+        var user, branches, templates, employees, admins, err_18;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
                     _a.trys.push([0, 5, , 6]);
+                    user = socket.user;
                     return [4 /*yield*/, branch_service_1.aggregateBranch([{ $match: {} }])];
                 case 1:
                     branches = _a.sent();
                     return [4 /*yield*/, template_service_1.aggregateTemplate([{ $match: {} }])];
                 case 2:
                     templates = _a.sent();
-                    return [4 /*yield*/, employee_2.aggregateEmployee([{ $match: {} }])];
+                    return [4 /*yield*/, employee_2.aggregateEmployee([
+                            { $match: { _id: { $ne: user._id } } },
+                        ])];
                 case 3:
                     employees = _a.sent();
                     return [4 /*yield*/, admin_1.aggregateAdmin([{ $match: {} }])];
@@ -1407,6 +1605,7 @@ function initialEmployeeDataHandler(socket) {
                     return [3 /*break*/, 6];
                 case 5:
                     err_18 = _a.sent();
+                    console.log("error", err_18);
                     return [3 /*break*/, 6];
                 case 6: return [2 /*return*/];
             }
@@ -1632,6 +1831,38 @@ function employeeMeetingHandler(socket, data) {
                                         },
                                     ],
                                     as: "customer",
+                                },
+                            },
+                            {
+                                $lookup: {
+                                    from: "conversations",
+                                    let: { conversationId: "$conversationId" },
+                                    pipeline: [
+                                        {
+                                            $match: {
+                                                $expr: {
+                                                    $eq: ["$_id", "$$conversationId"],
+                                                },
+                                            },
+                                        },
+                                        {
+                                            $project: {
+                                                participants: 1,
+                                            },
+                                        },
+                                    ],
+                                    as: "conversation",
+                                },
+                            },
+                            {
+                                $unwind: {
+                                    path: "$conversation",
+                                    preserveNullAndEmptyArrays: true,
+                                },
+                            },
+                            {
+                                $addFields: {
+                                    participants: "$conversation.participants",
                                 },
                             },
                             { $sort: { createdAt: -1 } },

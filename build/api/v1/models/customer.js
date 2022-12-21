@@ -38,6 +38,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
+var _this = this;
 Object.defineProperty(exports, "__esModule", { value: true });
 var mongoose_1 = __importDefault(require("mongoose"));
 var bcryptjs_1 = __importDefault(require("bcryptjs"));
@@ -46,6 +47,33 @@ var common_1 = require("./common");
 var enumArray_1 = __importDefault(require("../helpers/enumArray"));
 var companyType_1 = __importDefault(require("../enums/companyType"));
 var sendBy_1 = __importDefault(require("../enums/sendBy"));
+var KycSchema = new mongoose_1.default.Schema({
+    gstNumber: {
+        type: String,
+        required: function () {
+            //@ts-ignore
+            return _this.companyType == companyType_1.default.Company;
+        },
+    },
+    companyDocument: {
+        type: String,
+        required: function () {
+            //@ts-ignore
+            return _this.companyType == companyType_1.default.Company;
+        },
+    },
+    noOfEmployees: { type: String, required: true },
+    personalDocument: {
+        type: String,
+        required: true,
+    },
+    addressDocument: { type: String, required: true },
+    companyType: {
+        type: String,
+        required: true,
+        enum: enumArray_1.default(companyType_1.default),
+    },
+});
 var CustomerSchema = new mongoose_1.default.Schema({
     firstname: {
         type: String,
@@ -53,17 +81,19 @@ var CustomerSchema = new mongoose_1.default.Schema({
     },
     importantFiles: [{ type: mongoose_1.default.Types.ObjectId, ref: "Message" }],
     profileUri: String,
-    companyType: {
-        type: String,
-        required: true,
-        enum: enumArray_1.default(companyType_1.default),
-    },
+    // companyType: {
+    //   type: String,
+    //   required: true,
+    //   enum: convertEnumToArray(CompanyType),
+    // },
+    kycDetails: KycSchema,
     gstNumber: { type: String },
     state: { type: String, required: true },
     lastname: { type: String },
     assignedEmployee: String,
     companyLocation: { type: common_1.PointLocationSchema },
     email: { type: String, required: true },
+    kycVerified: { type: Boolean, default: false },
     number: {
         type: String,
         min: 10,

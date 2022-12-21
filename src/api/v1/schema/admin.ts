@@ -1,8 +1,8 @@
 import { object, string, number, boolean, date, array } from "joi";
-import HolidayType from "../enums/holidayType";
+
 import Priority from "../enums/priority";
 import convertEnumToArray from "../helpers/enumArray";
-import ProjectStatus from "../enums/taskStatus";
+
 import BillingType from "../enums/billingType";
 import TaskStatus from "../enums/taskStatus";
 import PaymentMethod from "../enums/paymentMethod";
@@ -198,6 +198,22 @@ const pointLocationSchema = object({
 export const requestMeetingSchema = object({
   body: object({
     projectId: string().required(),
+    startDate: date().required(),
+    mode: string()
+      .valid(...convertEnumToArray(MeetingMode))
+      .required(),
+    slotTime: number(),
+    endDate: string(),
+    comment: string().default(""),
+    requestedLocation: pointLocationSchema,
+    employeeId: string(),
+  })
+    .required()
+    .strict(),
+});
+
+export const addMeetingSchema = object({
+  body: object({
     startDate: date().required(),
     mode: string()
       .valid(...convertEnumToArray(MeetingMode))

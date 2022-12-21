@@ -1,13 +1,14 @@
 import { Types } from "aws-sdk/clients/acm";
 import moment from "moment";
 import mongoose, { ClientSession, mongo } from "mongoose";
-import { emit } from "process";
+
 import { Socket } from "socket.io";
 import {
   getActiveAdmins,
   getActiveConnections,
   getSocketServerInstance,
 } from "../../../socket/serverStore";
+import { ITimeLog } from "../models/task.model";
 import AttendanceType from "../enums/attendanceType";
 import ConversationType from "../enums/conversationType";
 import HolidayStatus from "../enums/holidayStatus";
@@ -16,9 +17,7 @@ import PaymentStatus from "../enums/paymentStatus";
 import QuotationType from "../enums/quotationType.enum";
 import SendBy from "../enums/sendBy";
 import TaskStatus from "../enums/taskStatus";
-import checkError from "../helpers/checkErrors";
 import CustomError from "../helpers/customError";
-import HolidayRequest from "../interfaces/holidayDate";
 import Admin, { AdminDocument } from "../models/admin";
 import { BranchDocument } from "../models/branch.model";
 import Comment from "../models/comment";
@@ -53,7 +52,7 @@ import {
   findAllBranch,
   findBranch,
 } from "../services/branch.service";
-import { aggregateCustomer } from "../services/customer";
+import { aggregateCustomer, findCustomer } from "../services/customer";
 import {
   aggregateEmployee,
   findAllEmployee,
@@ -73,6 +72,8 @@ import { aggregateQuotation } from "../services/quotation.Service";
 import { createSetting, findSetting } from "../services/setting.service";
 import { aggregateTask, findAllTask, findTask } from "../services/task";
 import { aggregateTemplate } from "../services/template.service";
+import MeetingType from "../enums/meetingType";
+import ReportView from "../enums/projectReport";
 
 export function adminSocketHandler(socket: Socket) {
   //@ts-ignore
@@ -163,6 +164,18 @@ export function adminSocketHandler(socket: Socket) {
       await adminInvoiceHandler(socket, data);
     });
 
+    socket.on("admin-verify-kyc", async (data, callback) => {
+      await verifyKycHandler(socket, data, callback);
+    });
+
+    socket.on("admin-daily-report", async (data, callback) => {
+      await employeeDailyReport(socket, data, callback);
+    });
+
+    socket.on("admin-project-report", async (data, callback) => {
+      await adminProjectReport(socket, data, callback);
+    });
+
     socket.on("employee-srisudha", async (data) => {
       await employeeSrisudhaHandler(socket, data);
     });
@@ -198,14 +211,14 @@ export function adminSocketHandler(socket: Socket) {
       await removeImportantHandler(socket, data);
     });
 
-    socket.on("admin-date-meeting", async (data) => {
-      await adminMeetingDateHandler(socket, data);
+    socket.on("admin-date-meeting", async (data, callback) => {
+      await adminMeetingDateHandler(socket, data, callback);
     });
-    socket.on("admin-date-leave", async (data) => {
-      await adminLeaveDateHandler(socket, data);
+    socket.on("admin-date-leave", async (data, callback) => {
+      await adminLeaveDateHandler(socket, data, callback);
     });
-    socket.on("admin-date-attendance", async (data) => {
-      await adminAttendanceDateHandler(socket, data);
+    socket.on("admin-date-attendance", async (data, callback) => {
+      await adminAttendanceDateHandler(socket, data, callback);
     });
     socket.on("admin-setting", async (data) => {
       await adminGetSettingHandler(socket, data);
@@ -227,24 +240,194 @@ export function adminSocketHandler(socket: Socket) {
   }
 }
 
-export async function employeeMonthlyReportHandler(
+export async function employeeDailyReport(
   socket: Socket,
-  data: { month: Date; employeeId: string },
+  data: { date: Date; employeeId: string },
   callback: (data: any) => void
 ) {
   try {
-    const date = moment(data.month).startOf("month");
+    const date = moment(data.date).startOf("day");
+    console.log("data", data.date);
+    const timeLogs = await aggregateTask([
+      {
+        $match: {
+          // createdAt: { $lte: date.toDate() },
+          "timeLog.employeeId": data.employeeId,
+        },
+      },
+      { $unwind: "$timeLog" },
+      {
+        $replaceRoot: {
+          newRoot: {
+            $mergeObjects: [{ taskId: "$_id", taskName: "$name" }, "$timeLog"],
+          },
+        },
+      },
+      {
+        $match: {
+          employeeId: data.employeeId,
+          $or: [
+            {
+              endTime: {
+                $gte: date.toDate(),
+                $lt: moment(date).add(1, "day").toDate(),
+              },
+            },
+            { endTime: { $exists: false } },
+          ],
+        },
+      },
+    ]);
+    // console.log("timeLogs", timeLogs);
+    callback({ status: 200, data: timeLogs });
+  } catch (err) {
+    console.log(err);
+  }
+}
+
+export async function adminProjectReport(
+  socket: Socket,
+  data: { view: ReportView; projectId: mongoose.Types.ObjectId },
+  callback: (data: any) => void
+) {
+  try {
+    console.log("data", data);
+    if (data.view == ReportView.Employee) {
+      const value = await aggregateTask([
+        { $match: { projectId: new mongoose.Types.ObjectId(data.projectId) } },
+        { $unwind: "$timeLog" },
+        {
+          $replaceRoot: {
+            newRoot: {
+              $mergeObjects: [{ taskId: "$_id" }, "$timeLog"],
+            },
+          },
+        },
+        { $group: { _id: "$employeeId", timeLogs: { $push: "$$ROOT" } } },
+        {
+          $lookup: {
+            from: "employees",
+            let: { employeeId: "$_id" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $eq: ["$_id", "$$employeeId"],
+                  },
+                },
+              },
+              {
+                $project: {
+                  _id: 1,
+                  username: 1,
+                  profileUri: 1,
+                  number: 1,
+                },
+              },
+            ],
+            as: "employee",
+          },
+        },
+        { $unwind: "$employee" },
+      ]);
+      console.log("response", value);
+      callback({ status: 200, data: value });
+    } else {
+      const tasks = await aggregateTask([
+        {
+          $match: {
+            projectId: new mongoose.Types.ObjectId(data.projectId),
+          },
+        },
+        { $unwind: "$timeLog" },
+        {
+          $lookup: {
+            from: "employees",
+            let: { employeeId: "$timeLog.employeeId" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $eq: ["$_id", "$$employeeId"],
+                  },
+                },
+              },
+              {
+                $project: {
+                  _id: 1,
+                  username: 1,
+                  profileUri: 1,
+                  number: 1,
+                },
+              },
+            ],
+            as: "employee",
+          },
+        },
+        { $unwind: "$employee" },
+        { $addFields: { "timeLog.employee": "$employee" } },
+        {
+          $group: {
+            _id: { id: "$_id", name: "$name", status: "$status" },
+
+            timeLogs: { $push: "$timeLog" },
+          },
+        },
+      ]);
+      console.log("tasks", JSON.stringify(tasks[0].timeLogs));
+      callback({ status: 200, data: tasks });
+    }
+  } catch (err) {
+    console.log("mes", err);
+    //@ts-ignore
+    callback({ status: 400, message: err.message });
+  }
+}
+
+export async function verifyKycHandler(
+  socket: Socket,
+  data: { customerId: string },
+  callback: (data: any) => void
+) {
+  try {
+    const customer = await findCustomer({ _id: data.customerId });
+    if (!customer || !customer?.kycDetails) {
+      throw new CustomError(
+        "Bad Request",
+        404,
+        "customer didnot submit any kyc details"
+      );
+    }
+    customer.kycVerified = true;
+    await customer.save();
+    const connection = getActiveConnections(data.customerId);
+    getSocketServerInstance()?.to(connection).emit("kyc-verify");
+    callback({ status: 200, message: "Kyc successfully verified" });
+  } catch (err) {
+    //@ts-ignore
+    callback({ status: 400, message: err.message });
+  }
+}
+
+export async function employeeMonthlyReportHandler(
+  socket: Socket,
+  data: { date: Date; employeeId: string },
+  callback: (data: any) => void
+) {
+  try {
+    console.log("data", data.date, moment(data.date).startOf("month"));
+    const date = moment(data.date).startOf("month");
     const employee = await findEmployee({ _id: data.employeeId });
     if (!employee) {
       throw new CustomError("Bad Request", 404, "No such employee found");
     }
     const query = {
-      date: { $gte: date.toDate(), $lt: date.add(1, "month").toDate() },
+      date: { $gte: date.toDate(), $lt: moment(date).add(1, "month").toDate() },
     };
-    const attendances = findAllAttendance({
+    const attendances = await findAllAttendance({
       ...query,
     });
-    const markAttendance = findAllAttendance(
+    const markAttendance = await findAllAttendance(
       {
         ...query,
         attendanceType: AttendanceType.Normal,
@@ -256,26 +439,64 @@ export async function employeeMonthlyReportHandler(
     const holidays = employee.holidayRequest.filter((value) => {
       if (
         moment(value.date).isSameOrAfter(date) &&
-        moment(value.date).isBefore(date.add(1, "month")) &&
+        moment(value.date).isBefore(moment(date).add(1, "month")) &&
         value.status == HolidayStatus.Approved
       ) {
         return value;
       }
     });
+
     const sickLeave = employee.sickLeave.find((value, index) => {
       if (
         moment(value.date)
           .startOf("month")
-          .isSameOrBefore(moment(data.month).startOf("month"))
+          .isSameOrBefore(moment(data.date).startOf("month"))
       ) {
         return true;
       } else {
         return false;
       }
     });
+    const hours: ITimeLog[] = await aggregateTask([
+      { $unwind: "$timeLog" },
+      { $replaceRoot: { newRoot: "$timeLog" } },
+
+      {
+        $match: {
+          $or: [
+            {
+              endTime: {
+                $gte: date.toDate(),
+                $lt: moment(date).add(1, "month").toDate(),
+              },
+            },
+            { endTime: { $exists: false } },
+          ],
+          employeeId: data.employeeId,
+        },
+      },
+    ]);
+    const seconds = hours.reduce((total, value) => {
+      if (date.isAfter(moment(value.startTime))) {
+        return (
+          total +
+          moment(value.endTime ?? moment()).diff(moment(date), "seconds")
+        );
+      } else {
+        console.log("are you there");
+        return (
+          total +
+          moment(value.endTime ?? moment()).diff(
+            moment(value.startTime),
+            "seconds"
+          )
+        );
+      }
+    }, 0);
+
     callback({
       status: 200,
-      data: { sickLeave, holidays, attendances, markAttendance },
+      data: { sickLeave, holidays, attendances, markAttendance, seconds },
     });
   } catch (err) {
     //@ts-ignore
@@ -675,10 +896,11 @@ async function adminGetSettingHandler(
 
 async function adminMeetingDateHandler(
   socket: Socket,
-  data: { date: string; employeeId?: string }
+  data: { date: string; employeeId?: string },
+  callback: (data: any) => void
 ) {
   try {
-    console.log("meeting", data.date);
+    console.log("meeting", data.date, moment(data.date));
     //@ts-ignore
     const user = socket.user as AdminDocument;
 
@@ -689,13 +911,25 @@ async function adminMeetingDateHandler(
     const meetings = await aggregateMeeting([
       {
         $match: {
-          ...match,
+          $or: [
+            { "participants.id": user._id },
+            {
+              meetingType: {
+                $in: [
+                  MeetingType.Conversation,
+                  MeetingType.Primary,
+                  MeetingType.Project,
+                ],
+              },
+            },
+          ],
           meetingStartTime: {
             $gte: moment(data.date).toDate(),
             $lt: moment(data.date).add(1, "day").toDate(),
           },
         },
       },
+      { $sort: { createdAt: -1 } },
       {
         $lookup: {
           from: "employees",
@@ -745,14 +979,60 @@ async function adminMeetingDateHandler(
           as: "customer",
         },
       },
-      { $sort: { createdAt: -1 } },
+      {
+        $lookup: {
+          from: "conversations",
+          let: { conversationId: "$conversationId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$_id", "$$conversationId"],
+                },
+              },
+            },
+            {
+              $project: {
+                participants: 1,
+              },
+            },
+          ],
+          as: "conversation",
+        },
+      },
+      {
+        $unwind: {
+          path: "$conversation",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $addFields: {
+          participants: {
+            $cond: {
+              if: {
+                $or: [
+                  { $eq: [MeetingType.Conversation, "$meetingType"] },
+                  { $eq: [MeetingType.Primary, "$meetingType"] },
+                ],
+              },
+              then: "$conversation.participants",
+              else: "$participants",
+            },
+          },
+        },
+      },
     ]);
-
-    socket.emit("admin-date-meeting-result", meetings);
+    console.log("meetings", meetings);
+    callback({ status: 200, data: meetings });
   } catch (err) {}
 }
 
-async function adminLeaveDateHandler(socket: Socket, data: { date: string }) {
+async function adminLeaveDateHandler(
+  socket: Socket,
+  data: { date: string },
+  callback: (data: any) => void
+) {
   try {
     //@ts-ignore
     const user = socket.user as AdminDocument;
@@ -765,7 +1045,7 @@ async function adminLeaveDateHandler(socket: Socket, data: { date: string }) {
     );
 
     console.log("leaves", employees);
-    socket.emit("admin-date-leave-result", employees);
+    callback({ status: 200, data: employees });
   } catch (err) {
     console.log("error", err);
   }
@@ -773,7 +1053,8 @@ async function adminLeaveDateHandler(socket: Socket, data: { date: string }) {
 
 async function adminAttendanceDateHandler(
   socket: Socket,
-  data: { date: string }
+  data: { date: string },
+  callback: (data: any) => void
 ) {
   try {
     //@ts-ignore
@@ -813,8 +1094,7 @@ async function adminAttendanceDateHandler(
         },
       },
     ]);
-    console.log("attendance", meetings);
-    socket.emit("admin-date-attendance-result", meetings);
+    callback({ status: 200, data: meetings });
   } catch (err) {
     console.log("error", err);
   }
@@ -1283,9 +1563,7 @@ async function adminProjectHandler(socket: Socket, data: any) {
 
 async function adminEmployeeHandler(socket: Socket) {
   const currentDate = moment();
-  const dateCheck = moment(
-    `${currentDate.year}-${currentDate.month}-${currentDate.date}`
-  );
+  const dateCheck = moment(currentDate).startOf("day");
   const employees = await aggregateEmployee([
     { $match: {} },
     {
@@ -1511,6 +1789,7 @@ async function searchCustomerHandler(socket: Socket) {
 async function adminCustomerHandler(socket: Socket) {
   const customers = await aggregateCustomer([
     { $match: {} },
+    { $sort: { createdAt: -1 } },
     {
       $lookup: {
         from: "employees",
@@ -2194,7 +2473,14 @@ export async function addInvoiceData(
   const adminConnection = getActiveAdmins();
 
   const customerConnection = getActiveConnections(data.customerId.toString());
+  console.log("invoice", data, branch, adminConnection);
+  // [...adminConnection, ...customerConnection].forEach((value) => {
+  //   console.log("value", value);
+  //   getSocketServerInstance()
+  //     ?.to(value)
+  //     .emit("add-invoice-result", { ...data.toJSON(), branch });
+  // });
   getSocketServerInstance()
-    ?.to([...adminConnection, ...customerConnection])
+    ?.sockets?.to([...adminConnection, ...customerConnection])
     .emit("add-invoice-result", { ...data.toJSON(), branch });
 }

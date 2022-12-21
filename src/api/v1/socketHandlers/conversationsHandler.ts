@@ -130,14 +130,16 @@ const conversationsHandler = async (socket: Socket) => {
       { $addFields: { lastMessage: "$message.createdAt" } },
       { $sort: { lastMessage: -1 } },
     ]);
+
     const activeConnections = serverStore.getActiveConnections(
       userDetails._id.toString()
     );
-
-    serverStore
-      .getSocketServerInstance()
-      ?.to(activeConnections)
-      .emit("all-conversation", conversations);
+    console.log("userDetails", userDetails._id, activeConnections);
+    // console.log("conversations", conversations);
+    // serverStore
+    //   .getSocketServerInstance()
+    //   ?.to(activeConnections)
+    socket.emit("all-conversation", conversations);
     // activeConnections.forEach((socketId) => {
 
     // });

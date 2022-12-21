@@ -93,10 +93,10 @@ function customerSocketHandler(socket) {
                 }
             });
         }); });
-        socket.on("customer-date-meeting", function (data) { return __awaiter(_this, void 0, void 0, function () {
+        socket.on("customer-date-meeting", function (data, callback) { return __awaiter(_this, void 0, void 0, function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
-                    case 0: return [4 /*yield*/, customerMeetingDateHandler(socket, data)];
+                    case 0: return [4 /*yield*/, customerMeetingDateHandler(socket, data, callback)];
                     case 1:
                         _a.sent();
                         return [2 /*return*/];
@@ -234,7 +234,7 @@ function customerSocketHandler(socket) {
     }
 }
 exports.customerSocketHandler = customerSocketHandler;
-function customerMeetingDateHandler(socket, data) {
+function customerMeetingDateHandler(socket, data, callback) {
     return __awaiter(this, void 0, void 0, function () {
         var user, meetings, err_1;
         return __generator(this, function (_a) {
@@ -247,20 +247,57 @@ function customerMeetingDateHandler(socket, data) {
                         .add(30, "minutes")
                         .add(1, "day")
                         .toISOString());
-                    return [4 /*yield*/, meeting_1.default.find({
-                            customerId: user._id,
-                            meetingStartTime: {
-                                $gte: moment_1.default(data.date).add(5, "hours").add(30, "minutes").toDate(),
-                                $lt: moment_1.default(data.date)
-                                    .add(5, "hours")
-                                    .add(30, "minutes")
-                                    .add(1, "day")
-                                    .toDate(),
+                    return [4 /*yield*/, meeting_2.aggregateMeeting([
+                            {
+                                $match: {
+                                    customerId: user._id,
+                                    meetingStartTime: {
+                                        $gte: moment_1.default(data.date).add(5, "hours").add(30, "minutes").toDate(),
+                                        $lt: moment_1.default(data.date)
+                                            .add(5, "hours")
+                                            .add(30, "minutes")
+                                            .add(1, "day")
+                                            .toDate(),
+                                    },
+                                },
                             },
-                        }).sort({ meetingStartTime: 1 })];
+                            {
+                                $lookup: {
+                                    from: "conversations",
+                                    let: { conversationId: "$conversationId" },
+                                    pipeline: [
+                                        {
+                                            $match: {
+                                                $expr: {
+                                                    $eq: ["$_id", "$$conversationId"],
+                                                },
+                                            },
+                                        },
+                                        {
+                                            $project: {
+                                                participants: 1,
+                                            },
+                                        },
+                                    ],
+                                    as: "conversation",
+                                },
+                            },
+                            {
+                                $unwind: {
+                                    path: "$conversation",
+                                    preserveNullAndEmptyArrays: true,
+                                },
+                            },
+                            {
+                                $addFields: {
+                                    participants: "$conversation.participants",
+                                },
+                            },
+                            { $sort: { meetingStartTime: 1 } },
+                        ])];
                 case 1:
                     meetings = _a.sent();
-                    socket.emit("customer-date-meeting-result", meetings);
+                    callback({ status: 200, data: meetings });
                     return [3 /*break*/, 3];
                 case 2:
                     err_1 = _a.sent();

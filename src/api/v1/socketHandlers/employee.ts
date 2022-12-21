@@ -9,10 +9,14 @@ import AttendanceType from "../enums/attendanceType";
 import ConversationType from "../enums/conversationType";
 import HolidayStatus from "../enums/holidayStatus";
 import MeetingStatus from "../enums/meetingStatus";
+import MeetingType from "../enums/meetingType";
 import SendBy from "../enums/sendBy";
 import TaskStatus from "../enums/taskStatus";
+import WorkFrom from "../enums/workFrom";
 import { socketError } from "../helpers/checkErrors";
 import CustomError from "../helpers/customError";
+import Location from "../interfaces/location";
+import PointLocation from "../interfaces/pointLocation";
 import Attendance from "../models/attendance";
 import Comment from "../models/comment";
 import Employee, { EmployeeDocument } from "../models/employee";
@@ -140,8 +144,8 @@ export function employeeSocketHandler(socket: Socket) {
       await employeeHolidayHandler(socket, data);
     });
 
-    socket.on("employee-date-meeting", async (data) => {
-      await employeeMeetingDateHandler(socket, data);
+    socket.on("employee-date-meeting", async (data, callback) => {
+      await employeeMeetingDateHandler(socket, data, callback);
     });
   }
 }
@@ -201,7 +205,7 @@ async function employeeTaskLogHandler(
 
 async function taskActionHandler(
   socket: Socket,
-  data: { taskId: string },
+  data: { taskId: string; workFrom: WorkFrom; location?: Location },
   callback: (data: any) => void
 ) {
   try {
@@ -211,18 +215,30 @@ async function taskActionHandler(
       assignedEmployee: user._id,
       _id: data.taskId,
     });
-    console.log("tasks", tasks, data);
+    console.log("tasks", data);
     if (!tasks) {
       throw new CustomError("Bad Request", 404, "No such task found");
     }
 
     let timeLog = tasks?.timeLog[0];
     if (!timeLog) {
-      tasks.timeLog = [{ startTime: moment().toDate(), employeeId: user._id }];
+      tasks.timeLog = [
+        {
+          startTime: moment().toDate(),
+          employeeId: user._id,
+          workFrom: data.workFrom,
+          location: data.location,
+        },
+      ];
     } else {
       if (timeLog.endTime) {
         tasks.timeLog = [
-          { startTime: moment().toDate(), employeeId: user._id },
+          {
+            startTime: moment().toDate(),
+            employeeId: user._id,
+            workFrom: data.workFrom,
+            location: data.location,
+          },
           ...tasks.timeLog,
         ];
       } else {
@@ -230,7 +246,9 @@ async function taskActionHandler(
       }
     }
     await tasks.save();
-  } catch (err) {}
+  } catch (err) {
+    console.log(err);
+  }
 }
 
 async function markAttendanceHandler(
@@ -405,7 +423,8 @@ async function confirmMeetingHandler(
 
 async function employeeMeetingDateHandler(
   socket: Socket,
-  data: { date: string }
+  data: { date: string },
+  callback: (data: any) => void
 ) {
   try {
     console.log("meeting", data.date);
@@ -450,6 +469,12 @@ async function employeeMeetingDateHandler(
                       $and: [
                         { $eq: ["$$projectId", "$projectId"] },
                         { $eq: ["$$primary", true] },
+                      ],
+                    },
+                    {
+                      $and: [
+                        { $eq: ["$$projectId", "$projectId"] },
+                        { $eq: ["$meetingType", MeetingType.Conversation] },
                       ],
                     },
                   ],
@@ -506,6 +531,50 @@ async function employeeMeetingDateHandler(
                 as: "customer",
               },
             },
+            {
+              $lookup: {
+                from: "conversations",
+                let: { conversationId: "$conversationId" },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: {
+                        $eq: ["$_id", "$$conversationId"],
+                      },
+                    },
+                  },
+                  {
+                    $project: {
+                      participants: 1,
+                    },
+                  },
+                ],
+                as: "conversation",
+              },
+            },
+            {
+              $unwind: {
+                path: "$conversation",
+                preserveNullAndEmptyArrays: true,
+              },
+            },
+            {
+              $addFields: {
+                participants: {
+                  $cond: {
+                    if: {
+                      $or: [
+                        { $eq: [MeetingType.Conversation, "$meetingType"] },
+                        { $eq: [MeetingType.Primary, "$meetingType"] },
+                      ],
+                    },
+                    then: "$conversation.participants",
+                    else: "$participants",
+                  },
+                },
+              },
+            },
+            { $project: { conversation: 0 } },
             { $sort: { createdAt: -1 } },
           ],
           as: "meetings",
@@ -513,12 +582,141 @@ async function employeeMeetingDateHandler(
       },
     ]);
 
+    const directMeeting = await aggregateMeeting([
+      {
+        $match: {
+          meetingType: { $in: [MeetingType.Direct, MeetingType.Primary] },
+          meetingStartTime: {
+            $gte: moment(data.date).toDate(),
+            $lt: moment(data.date).add(1, "day").toDate(),
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "conversations",
+          let: { conversationId: "$conversationId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$_id", "$$conversationId"],
+                },
+              },
+            },
+            {
+              $project: {
+                participants: 1,
+              },
+            },
+          ],
+          as: "conversation",
+        },
+      },
+      {
+        $unwind: {
+          path: "$conversation",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $addFields: {
+          participants: {
+            $cond: {
+              if: {
+                $or: [
+                  { $eq: [MeetingType.Conversation, "$meetingType"] },
+                  { $eq: [MeetingType.Primary, "$meetingType"] },
+                ],
+              },
+              then: "$conversation.participants",
+              else: "$participants",
+            },
+          },
+        },
+      },
+      {
+        $match: {
+          "participants.id": user._id,
+        },
+      },
+      { $sort: { createdAt: -1 } },
+    ]);
+
+    // const meetings = await aggregateMeeting([
+    //   {
+    //     $match: {
+    //       $or: [
+    //         { "participants.id": user._id },
+    //         {
+    //           meetingType: {
+    //             $in: [MeetingType.Conversation, MeetingType.Primary],
+    //           },
+    //         },
+    //       ],
+    //       meetingStartTime: {
+    //         $gte: moment(data.date).toDate(),
+    //         $lt: moment(data.date).add(1, "day").toDate(),
+    //       },
+    //     },
+    //   },
+    //   {
+    //     $lookup: {
+    //       from: "employees",
+    //       let: { employeeId: "$employeeId" },
+    //       pipeline: [
+    //         {
+    //           $match: {
+    //             $expr: {
+    //               $eq: ["$_id", "$$employeeId"],
+    //             },
+    //           },
+    //         },
+    //         {
+    //           $project: {
+    //             _id: 1,
+    //             username: 1,
+    //             profileUri: 1,
+    //             number: 1,
+    //           },
+    //         },
+    //       ],
+    //       as: "employee",
+    //     },
+    //   },
+    //   {
+    //     $lookup: {
+    //       from: "customers",
+    //       let: { customerId: "$customerId" },
+    //       pipeline: [
+    //         {
+    //           $match: {
+    //             $expr: {
+    //               $eq: ["$_id", "$$customerId"],
+    //             },
+    //           },
+    //         },
+    //         {
+    //           $project: {
+    //             _id: 1,
+    //             username: 1,
+    //             companyName: 1,
+    //             number: 1,
+    //             profileUri: 1,
+    //           },
+    //         },
+    //       ],
+    //       as: "customer",
+    //     },
+    //   },
+    //   { $sort: { createdAt: -1 } },
+    // ]);
+    console.log("directMee", directMeeting);
     const meetings: any[] = [];
     projects.forEach((value) => {
       meetings.push(...value.meetings);
     });
-
-    socket.emit("employee-date-meeting-result", meetings);
+    callback({ status: 200, data: [...meetings, ...directMeeting] });
   } catch (err) {
     console.log("error", err);
   }
@@ -1000,9 +1198,13 @@ async function employeeProjectHandler(socket: Socket, data: any) {
 
 export async function initialEmployeeDataHandler(socket: Socket) {
   try {
+    //@ts-ignore
+    const user = socket.user! as EmployeeDocument;
     const branches = await aggregateBranch([{ $match: {} }]);
     const templates = await aggregateTemplate([{ $match: {} }]);
-    const employees = await aggregateEmployee([{ $match: {} }]);
+    const employees = await aggregateEmployee([
+      { $match: { _id: { $ne: user._id } } },
+    ]);
     const admins = await aggregateAdmin([{ $match: {} }]);
     socket.emit("initial-data-result", {
       employees,
@@ -1010,7 +1212,9 @@ export async function initialEmployeeDataHandler(socket: Socket) {
       templates,
       admins,
     });
-  } catch (err) {}
+  } catch (err) {
+    console.log("error", err);
+  }
 }
 
 async function employeeTaskHandler(
@@ -1228,6 +1432,38 @@ async function employeeMeetingHandler(
           },
         ],
         as: "customer",
+      },
+    },
+    {
+      $lookup: {
+        from: "conversations",
+        let: { conversationId: "$conversationId" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $eq: ["$_id", "$$conversationId"],
+              },
+            },
+          },
+          {
+            $project: {
+              participants: 1,
+            },
+          },
+        ],
+        as: "conversation",
+      },
+    },
+    {
+      $unwind: {
+        path: "$conversation",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $addFields: {
+        participants: "$conversation.participants",
       },
     },
     { $sort: { createdAt: -1 } },

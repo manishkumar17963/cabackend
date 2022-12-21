@@ -57,6 +57,8 @@ import {
 import BillingType from "../enums/billingType";
 import PaymentStatus from "../enums/paymentStatus";
 import { findCustomer } from "../services/customer";
+import MeetingType from "../enums/meetingType";
+import { Participant } from "../models/conversation.model";
 
 export async function createEmployeeHandler(req: Request, res: Response) {
   var session: ClientSession = await mongoose.startSession();
@@ -636,7 +638,7 @@ export async function addHolidayRequestHandler(req: Request, res: Response) {
 
         status: HolidayStatus.Pending,
         holidayAdded: false,
-        holidayType: HolidayType.Paid,
+        holidayType: leaves[type]?.type,
         type: type,
       });
     } else {
@@ -830,6 +832,7 @@ export async function requestMeetingHandler(req: Request, res: Response) {
       employeeId: employee?._id,
       projectId: project._id,
       requestedBy: SendBy.Employee,
+      creatorId: { number: user.number, name: user.username, id: user._id },
       customerConfirmed: false,
       employeeConfirmed: employee?._id == user._id ? true : false,
       employeeHistory: employee
@@ -843,6 +846,60 @@ export async function requestMeetingHandler(req: Request, res: Response) {
         mode == MeetingMode.Online ? finishedDate.toDate() : endDate,
       slotTime: 30,
       ...locationValue,
+    });
+    await session.commitTransaction();
+    res.send(meeting);
+  } catch (error) {
+    await session.abortTransaction();
+    checkError(error, res);
+  }
+}
+
+export async function addMeetingHandler(req: Request, res: Response) {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    let {
+      meetingType,
+      participants,
+      conversationId,
+      startDate,
+      customerId,
+      projectId,
+      slotTime,
+
+      comment,
+    }: {
+      conversationId?: mongoose.Types.ObjectId;
+      startDate: Date;
+      customerId?: mongoose.Types.ObjectId;
+      projectId: mongoose.Types.ObjectId;
+      meetingType: MeetingType;
+      participants?: Participant[];
+
+      comment?: string;
+      slotTime?: number;
+      requestedLocation?: PointLocation;
+      employeeId?: string;
+    } = req.body;
+    const user = req.user! as EmployeeDocument;
+    console.log("data", req.body);
+    const finishedDate = moment(startDate).add(slotTime ?? 30, "minutes");
+
+    const meeting = await createMeeting({
+      requestedBy: SendBy.Employee,
+      customerConfirmed: false,
+      customerId: customerId,
+      meetingType,
+      conversationId,
+      participants,
+      creatorId: { number: user.number, name: user.username, id: user._id },
+      projectId: projectId,
+      comment: comment,
+      mode: MeetingMode.Online,
+      meetingStartTime: startDate,
+      meetingEndTime: finishedDate.toDate(),
+      slotTime: 30,
     });
     await session.commitTransaction();
     res.send(meeting);

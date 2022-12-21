@@ -193,8 +193,9 @@ var directMessageHandler = function (socket, data) { return __awaiter(void 0, vo
                             activeConnections = serverStore_1.getActiveConnections(participant.id);
                             conver = {};
                             activeConnections.forEach(function (value) {
-                                var _a;
-                                (_a = serverStore_1.getSocketServerInstance()) === null || _a === void 0 ? void 0 : _a.to(value).emit("direct-message", __assign(__assign(__assign({ message: newMessage_1, owned: participant.id == _id_1.toString() ? true : false, unseen: participant.id == _id_1.toString() ? 0 : 1 }, (conversationType_2 == conversationType_1.default.Direct ||
+                                var _a, _b;
+                                console.log("hello sir", value, (_a = serverStore_1.getSocketServerInstance()) === null || _a === void 0 ? void 0 : _a.in);
+                                (_b = serverStore_1.getSocketServerInstance()) === null || _b === void 0 ? void 0 : _b.in(value).emit("direct-message", __assign(__assign(__assign({ message: newMessage_1, owned: participant.id == _id_1.toString() ? true : false, unseen: participant.id == _id_1.toString() ? 0 : 1 }, (conversationType_2 == conversationType_1.default.Direct ||
                                     conversationType_2 == conversationType_1.default.Primary
                                     ? { receiverId: index == 0 ? arr[1].id : arr[0].id }
                                     : {})), { receiverType: receiverType_1, _id: conversation_1 === null || conversation_1 === void 0 ? void 0 : conversation_1._id, conversationType: conversationType_2, new: newConversation_1 }), (newConversation_1

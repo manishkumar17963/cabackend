@@ -49,8 +49,8 @@ export function customerSocketHandler(socket: Socket) {
       await customerProjectHandler(socket, data);
     });
 
-    socket.on("customer-date-meeting", async (data) => {
-      await customerMeetingDateHandler(socket, data);
+    socket.on("customer-date-meeting", async (data, callback) => {
+      await customerMeetingDateHandler(socket, data, callback);
     });
 
     socket.on("confirm-meeting", async (data) => {
@@ -108,7 +108,8 @@ export function customerSocketHandler(socket: Socket) {
 
 async function customerMeetingDateHandler(
   socket: Socket,
-  data: { date: string }
+  data: { date: string },
+  callback: (data: any) => void
 ) {
   try {
     //@ts-ignore
@@ -123,19 +124,55 @@ async function customerMeetingDateHandler(
         .add(1, "day")
         .toISOString()
     );
-    const meetings = await Meeting.find({
-      customerId: user._id,
-      meetingStartTime: {
-        $gte: moment(data.date).add(5, "hours").add(30, "minutes").toDate(),
-        $lt: moment(data.date)
-          .add(5, "hours")
-          .add(30, "minutes")
-          .add(1, "day")
-          .toDate(),
+    const meetings = await aggregateMeeting([
+      {
+        $match: {
+          customerId: user._id,
+          meetingStartTime: {
+            $gte: moment(data.date).add(5, "hours").add(30, "minutes").toDate(),
+            $lt: moment(data.date)
+              .add(5, "hours")
+              .add(30, "minutes")
+              .add(1, "day")
+              .toDate(),
+          },
+        },
       },
-    }).sort({ meetingStartTime: 1 });
-
-    socket.emit("customer-date-meeting-result", meetings);
+      {
+        $lookup: {
+          from: "conversations",
+          let: { conversationId: "$conversationId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$_id", "$$conversationId"],
+                },
+              },
+            },
+            {
+              $project: {
+                participants: 1,
+              },
+            },
+          ],
+          as: "conversation",
+        },
+      },
+      {
+        $unwind: {
+          path: "$conversation",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $addFields: {
+          participants: "$conversation.participants",
+        },
+      },
+      { $sort: { meetingStartTime: 1 } },
+    ]);
+    callback({ status: 200, data: meetings });
   } catch (err) {}
 }
 

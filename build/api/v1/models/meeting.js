@@ -11,14 +11,22 @@ var enumArray_1 = __importDefault(require("../helpers/enumArray"));
 var common_1 = require("./common");
 var sendBy_1 = __importDefault(require("../enums/sendBy"));
 var meetingStatus_1 = __importDefault(require("../enums/meetingStatus"));
+var meetingType_1 = __importDefault(require("../enums/meetingType"));
+var conversation_model_1 = require("./conversation.model");
 var MeetingEmployeeAction;
 (function (MeetingEmployeeAction) {
     MeetingEmployeeAction["Approved"] = "approved";
     MeetingEmployeeAction["Pending"] = "pending";
     MeetingEmployeeAction["Declined"] = "declined";
 })(MeetingEmployeeAction = exports.MeetingEmployeeAction || (exports.MeetingEmployeeAction = {}));
+var creatorSchema = new mongoose_1.default.Schema({
+    name: { type: String, required: true },
+    number: { type: String, required: true },
+    id: { type: String, required: true },
+});
 var MeetingSchema = new mongoose_1.default.Schema({
     employeeId: { type: String },
+    creatorId: creatorSchema,
     employeeHistory: [
         {
             status: {
@@ -30,8 +38,46 @@ var MeetingSchema = new mongoose_1.default.Schema({
             employeeId: { type: String },
         },
     ],
-    projectId: { type: mongoose_1.default.Types.ObjectId, required: true },
-    customerId: { type: mongoose_1.default.Types.ObjectId, required: true },
+    meetingType: {
+        default: meetingType_1.default.Project,
+        type: String,
+        enum: enumArray_1.default(meetingType_1.default),
+    },
+    projectId: {
+        type: mongoose_1.default.Types.ObjectId,
+        required: function () {
+            //@ts-ignore
+            return _this.meetingType == meetingType_1.default.Project;
+        },
+    },
+    customerId: {
+        type: mongoose_1.default.Types.ObjectId,
+        required: function () {
+            return (
+            //@ts-ignore
+            _this.meetingType == meetingType_1.default.Project &&
+                //@ts-ignore
+                _this.meetingType == meetingType_1.default.Primary);
+        },
+    },
+    conversationId: {
+        type: mongoose_1.default.Types.ObjectId,
+        required: function () {
+            //@ts-ignore
+            return (
+            //@ts-ignore
+            _this.meetingType == meetingType_1.default.Conversation ||
+                //@ts-ignore
+                _this.meetingType == meetingType_1.default.Primary);
+        },
+    },
+    participants: {
+        type: [conversation_model_1.participantSchema],
+        required: function () {
+            //@ts-ignore
+            return _this.meetingType == meetingType_1.default.Direct;
+        },
+    },
     requestedBy: {
         type: String,
         enum: enumArray_1.default(sendBy_1.default),

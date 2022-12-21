@@ -175,11 +175,8 @@ export async function invoicePaymentHandler(req: Request, res: Response) {
         "Invoice already paid or no such invoice found"
       );
     }
-    const amount = invoice.services.reduce(
-      (total, value) => total + value.price,
-      0
-    );
-    if (req.body.tds > amount) {
+    const amount = invoice.amount;
+    if ((req.body.tds ?? 0) > amount) {
       throw new CustomError(
         "Bad request",
         404,
@@ -233,6 +230,7 @@ export async function invoicePaymentSuccessHandler(
   invoice.paymentStatus = PaymentStatus.Paid;
   invoice.tds =
     invoice.amount + (invoice.cgst ?? 0) + (invoice.sgst ?? 0) - amount;
+  console.log("tds", invoice.tds);
   await invoice.save();
   const project = await findProject({
     _id: invoice.projectId,

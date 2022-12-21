@@ -63,11 +63,11 @@ var conversation_model_1 = __importDefault(require("../models/conversation.model
 var conversationType_1 = __importDefault(require("../enums/conversationType"));
 var conversationsHandler = function (socket) { return __awaiter(void 0, void 0, void 0, function () {
     var userDetails, conversations, activeConnections, err_1;
-    var _a, _b;
-    return __generator(this, function (_c) {
-        switch (_c.label) {
+    var _a;
+    return __generator(this, function (_b) {
+        switch (_b.label) {
             case 0:
-                _c.trys.push([0, 2, , 3]);
+                _b.trys.push([0, 2, , 3]);
                 userDetails = socket.user;
                 return [4 /*yield*/, conversation_model_1.default.aggregate([
                         {
@@ -184,13 +184,17 @@ var conversationsHandler = function (socket) { return __awaiter(void 0, void 0, 
                         { $sort: { lastMessage: -1 } },
                     ])];
             case 1:
-                conversations = _c.sent();
+                conversations = _b.sent();
                 activeConnections = serverStore.getActiveConnections(userDetails._id.toString());
-                (_b = serverStore
-                    .getSocketServerInstance()) === null || _b === void 0 ? void 0 : _b.to(activeConnections).emit("all-conversation", conversations);
+                console.log("userDetails", userDetails._id, activeConnections);
+                // console.log("conversations", conversations);
+                // serverStore
+                //   .getSocketServerInstance()
+                //   ?.to(activeConnections)
+                socket.emit("all-conversation", conversations);
                 return [3 /*break*/, 3];
             case 2:
-                err_1 = _c.sent();
+                err_1 = _b.sent();
                 console.log(err_1);
                 return [3 /*break*/, 3];
             case 3: return [2 /*return*/];

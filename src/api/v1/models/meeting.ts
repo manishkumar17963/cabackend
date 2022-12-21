@@ -5,6 +5,8 @@ import convertEnumToArray from "../helpers/enumArray";
 import { PointLocationSchema } from "./common";
 import SendBy from "../enums/sendBy";
 import MeetingStatus from "../enums/meetingStatus";
+import MeetingType from "../enums/meetingType";
+import { Participant, participantSchema } from "./conversation.model";
 
 export enum MeetingEmployeeAction {
   Approved = "approved",
@@ -14,8 +16,10 @@ export enum MeetingEmployeeAction {
 
 export interface MeetingDocument extends mongoose.Document {
   employeeId?: string;
-  projectId: mongoose.Types.ObjectId;
+  projectId?: mongoose.Types.ObjectId;
+  meetingType: MeetingType;
   requestedBy: SendBy;
+  creatorId: { name: string; id: string; number: string };
   employeeCompleted: Boolean;
   employeeHistory: {
     status: MeetingEmployeeAction;
@@ -28,6 +32,8 @@ export interface MeetingDocument extends mongoose.Document {
   mode: MeetingMode;
   slotTime?: number;
   meetingStartTime: Date;
+  conversationId?: mongoose.Types.ObjectId;
+  participants: Participant[];
 
   comment?: string;
   meetingEndTime?: Date;
@@ -40,9 +46,16 @@ export interface MeetingDocument extends mongoose.Document {
   attendanceGiven: Boolean;
 }
 
+const creatorSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  number: { type: String, required: true },
+  id: { type: String, required: true },
+});
+
 var MeetingSchema = new mongoose.Schema(
   {
     employeeId: { type: String },
+    creatorId: creatorSchema,
     employeeHistory: [
       {
         status: {
@@ -54,8 +67,48 @@ var MeetingSchema = new mongoose.Schema(
         employeeId: { type: String },
       },
     ],
-    projectId: { type: mongoose.Types.ObjectId, required: true },
-    customerId: { type: mongoose.Types.ObjectId, required: true },
+    meetingType: {
+      default: MeetingType.Project,
+      type: String,
+      enum: convertEnumToArray(MeetingType),
+    },
+    projectId: {
+      type: mongoose.Types.ObjectId,
+      required: () => {
+        //@ts-ignore
+        return this.meetingType == MeetingType.Project;
+      },
+    },
+    customerId: {
+      type: mongoose.Types.ObjectId,
+      required: () => {
+        return (
+          //@ts-ignore
+          this.meetingType == MeetingType.Project &&
+          //@ts-ignore
+          this.meetingType == MeetingType.Primary
+        );
+      },
+    },
+    conversationId: {
+      type: mongoose.Types.ObjectId,
+      required: () => {
+        //@ts-ignore
+        return (
+          //@ts-ignore
+          this.meetingType == MeetingType.Conversation ||
+          //@ts-ignore
+          this.meetingType == MeetingType.Primary
+        );
+      },
+    },
+    participants: {
+      type: [participantSchema],
+      required: () => {
+        //@ts-ignore
+        return this.meetingType == MeetingType.Direct;
+      },
+    },
     requestedBy: {
       type: String,
       enum: convertEnumToArray(SendBy),

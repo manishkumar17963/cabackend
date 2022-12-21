@@ -23,7 +23,7 @@ export interface ConversationDocument
   extends mongoose.Document,
     ConversationInput {}
 
-const participantSchema = new mongoose.Schema(
+export const participantSchema = new mongoose.Schema(
   {
     id: { type: String, required: true },
     participantType: {

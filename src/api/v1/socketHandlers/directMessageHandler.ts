@@ -189,8 +189,10 @@ const directMessageHandler = async (
       const activeConnections = getActiveConnections(participant.id);
       let conver: { [key: string]: any } = {};
       activeConnections.forEach((value) => {
+        console.log("hello sir", value, getSocketServerInstance()?.in);
+
         getSocketServerInstance()
-          ?.to(value)
+          ?.in(value)
           .emit("direct-message", {
             message: newMessage,
             owned: participant.id == _id.toString() ? true : false,

@@ -57,7 +57,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.employeeConnectMeetingHandler = exports.abortMeetingHandler = exports.commitMeetingHandler = exports.assignTaskToEmployeeHandler = exports.createTaskCustomerHandler = exports.completeMeetingHandler = exports.declineMeetingHandler = exports.updateEmployeeMeetingHandler = exports.requestMeetingHandler = exports.addCommentHandler = exports.removeHolidayRequestHandler = exports.addHolidayRequestHandler = exports.addAttendanceHandler = exports.logoutEmployeeAppHandler = exports.logoutEmployeeHandler = exports.getStatusHandler = exports.loginEmployeeAppHandler = exports.loginEmployeeHandler = exports.verifyForgotOtpHandler = exports.forgotPasswordHandler = exports.verifyEmployeeHandler = exports.updateTaskStatusHandler = exports.declinedTaskHandler = exports.completeTaskHandler = exports.updateStatusHandler = exports.declinedProjectHandler = exports.completeProjectHandler = exports.updateProjectHandler = exports.createEmployeeHandler = void 0;
+exports.employeeConnectMeetingHandler = exports.abortMeetingHandler = exports.commitMeetingHandler = exports.assignTaskToEmployeeHandler = exports.createTaskCustomerHandler = exports.completeMeetingHandler = exports.declineMeetingHandler = exports.updateEmployeeMeetingHandler = exports.addMeetingHandler = exports.requestMeetingHandler = exports.addCommentHandler = exports.removeHolidayRequestHandler = exports.addHolidayRequestHandler = exports.addAttendanceHandler = exports.logoutEmployeeAppHandler = exports.logoutEmployeeHandler = exports.getStatusHandler = exports.loginEmployeeAppHandler = exports.loginEmployeeHandler = exports.verifyForgotOtpHandler = exports.forgotPasswordHandler = exports.verifyEmployeeHandler = exports.updateTaskStatusHandler = exports.declinedTaskHandler = exports.completeTaskHandler = exports.updateStatusHandler = exports.declinedProjectHandler = exports.completeProjectHandler = exports.updateProjectHandler = exports.createEmployeeHandler = void 0;
 var checkErrors_1 = __importDefault(require("../helpers/checkErrors"));
 var customError_1 = __importDefault(require("../helpers/customError"));
 var employee_1 = require("../services/employee");
@@ -66,7 +66,6 @@ var employee_2 = __importDefault(require("../models/employee"));
 var attendance_1 = require("../services/attendance");
 var holiday_1 = require("../services/holiday");
 var holidayStatus_1 = __importDefault(require("../enums/holidayStatus"));
-var holidayType_1 = __importDefault(require("../enums/holidayType"));
 var mongoose_1 = __importDefault(require("mongoose"));
 var task_1 = require("../services/task");
 var comment_1 = require("../services/comment");
@@ -718,15 +717,15 @@ function addAttendanceHandler(req, res) {
 }
 exports.addAttendanceHandler = addAttendanceHandler;
 function addHolidayRequestHandler(req, res) {
-    var _a;
+    var _a, _b;
     return __awaiter(this, void 0, void 0, function () {
-        var user, _b, date_1, reason, type_1, sickId_1, holiday, requestIndex, value, leaves, totalLeaveTaken, error_9;
-        return __generator(this, function (_c) {
-            switch (_c.label) {
+        var user, _c, date_1, reason, type_1, sickId_1, holiday, requestIndex, value, leaves, totalLeaveTaken, error_9;
+        return __generator(this, function (_d) {
+            switch (_d.label) {
                 case 0:
-                    _c.trys.push([0, 3, , 4]);
+                    _d.trys.push([0, 3, , 4]);
                     user = req.user;
-                    _b = req.body, date_1 = _b.date, reason = _b.reason, type_1 = _b.type, sickId_1 = _b.sickId;
+                    _c = req.body, date_1 = _c.date, reason = _c.reason, type_1 = _c.type, sickId_1 = _c.sickId;
                     if (moment_1.default(date_1).isBefore(moment_1.default())) {
                         throw new customError_1.default("Bad Request", 404, "Date already passed");
                     }
@@ -736,7 +735,7 @@ function addHolidayRequestHandler(req, res) {
                             end: { $gt: date_1 },
                         })];
                 case 1:
-                    holiday = _c.sent();
+                    holiday = _d.sent();
                     if (holiday) {
                         throw new customError_1.default("Bad Request", 400, "This day was holiday declared by owner");
                     }
@@ -774,7 +773,7 @@ function addHolidayRequestHandler(req, res) {
                             reason: reason,
                             status: holidayStatus_1.default.Pending,
                             holidayAdded: false,
-                            holidayType: holidayType_1.default.Paid,
+                            holidayType: (_b = leaves[type_1]) === null || _b === void 0 ? void 0 : _b.type,
                             type: type_1,
                         });
                     }
@@ -783,11 +782,11 @@ function addHolidayRequestHandler(req, res) {
                     }
                     return [4 /*yield*/, user.save()];
                 case 2:
-                    _c.sent();
+                    _d.sent();
                     res.send({ message: "your holiday request has been sent to owner" });
                     return [3 /*break*/, 4];
                 case 3:
-                    error_9 = _c.sent();
+                    error_9 = _d.sent();
                     checkErrors_1.default(error_9, res);
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
@@ -961,7 +960,7 @@ function requestMeetingHandler(req, res) {
                     if (mode == meetingMode_1.default.Physical) {
                         locationValue["requestedLocation"] = requestedLocation;
                     }
-                    return [4 /*yield*/, meeting_1.createMeeting(__assign({ employeeId: employee === null || employee === void 0 ? void 0 : employee._id, projectId: project._id, requestedBy: sendBy_1.default.Employee, customerConfirmed: false, employeeConfirmed: (employee === null || employee === void 0 ? void 0 : employee._id) == user._id ? true : false, employeeHistory: employee
+                    return [4 /*yield*/, meeting_1.createMeeting(__assign({ employeeId: employee === null || employee === void 0 ? void 0 : employee._id, projectId: project._id, requestedBy: sendBy_1.default.Employee, creatorId: { number: user.number, name: user.username, id: user._id }, customerConfirmed: false, employeeConfirmed: (employee === null || employee === void 0 ? void 0 : employee._id) == user._id ? true : false, employeeHistory: employee
                                 ? [{ status: meeting_2.MeetingEmployeeAction.Pending, employeeId: employeeId }]
                                 : [], customerId: project.customerId, comment: comment,
                             mode: mode, meetingStartTime: startDate, meetingEndTime: mode == meetingMode_1.default.Online ? finishedDate.toDate() : endDate, slotTime: 30 }, locationValue))];
@@ -985,6 +984,57 @@ function requestMeetingHandler(req, res) {
     });
 }
 exports.requestMeetingHandler = requestMeetingHandler;
+function addMeetingHandler(req, res) {
+    return __awaiter(this, void 0, void 0, function () {
+        var session, _a, meetingType, participants, conversationId, startDate, customerId, projectId, slotTime, comment, user, finishedDate, meeting, error_13;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
+                case 0: return [4 /*yield*/, mongoose_1.default.startSession()];
+                case 1:
+                    session = _b.sent();
+                    session.startTransaction();
+                    _b.label = 2;
+                case 2:
+                    _b.trys.push([2, 5, , 7]);
+                    _a = req.body, meetingType = _a.meetingType, participants = _a.participants, conversationId = _a.conversationId, startDate = _a.startDate, customerId = _a.customerId, projectId = _a.projectId, slotTime = _a.slotTime, comment = _a.comment;
+                    user = req.user;
+                    console.log("data", req.body);
+                    finishedDate = moment_1.default(startDate).add(slotTime !== null && slotTime !== void 0 ? slotTime : 30, "minutes");
+                    return [4 /*yield*/, meeting_1.createMeeting({
+                            requestedBy: sendBy_1.default.Employee,
+                            customerConfirmed: false,
+                            customerId: customerId,
+                            meetingType: meetingType,
+                            conversationId: conversationId,
+                            participants: participants,
+                            creatorId: { number: user.number, name: user.username, id: user._id },
+                            projectId: projectId,
+                            comment: comment,
+                            mode: meetingMode_1.default.Online,
+                            meetingStartTime: startDate,
+                            meetingEndTime: finishedDate.toDate(),
+                            slotTime: 30,
+                        })];
+                case 3:
+                    meeting = _b.sent();
+                    return [4 /*yield*/, session.commitTransaction()];
+                case 4:
+                    _b.sent();
+                    res.send(meeting);
+                    return [3 /*break*/, 7];
+                case 5:
+                    error_13 = _b.sent();
+                    return [4 /*yield*/, session.abortTransaction()];
+                case 6:
+                    _b.sent();
+                    checkErrors_1.default(error_13, res);
+                    return [3 /*break*/, 7];
+                case 7: return [2 /*return*/];
+            }
+        });
+    });
+}
+exports.addMeetingHandler = addMeetingHandler;
 function updateEmployeeMeetingHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
         var session, _a, meetingId, employeeId, meeting, user, project, employee, invalid, employee_3, err_7;
@@ -1063,7 +1113,7 @@ function updateEmployeeMeetingHandler(req, res) {
 exports.updateEmployeeMeetingHandler = updateEmployeeMeetingHandler;
 function declineMeetingHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var session, meetingId, meeting, user, project, employee, error_13;
+        var session, meetingId, meeting, user, project, employee, error_14;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0: return [4 /*yield*/, mongoose_1.default.startSession()];
@@ -1114,13 +1164,13 @@ function declineMeetingHandler(req, res) {
                     res.send({ message: "your meeting has been declined" });
                     return [3 /*break*/, 11];
                 case 9:
-                    error_13 = _a.sent();
+                    error_14 = _a.sent();
                     //@ts-ignore
                     return [4 /*yield*/, session.abortTransaction()];
                 case 10:
                     //@ts-ignore
                     _a.sent();
-                    checkErrors_1.default(error_13, res);
+                    checkErrors_1.default(error_14, res);
                     return [3 /*break*/, 11];
                 case 11: return [2 /*return*/];
             }
@@ -1130,7 +1180,7 @@ function declineMeetingHandler(req, res) {
 exports.declineMeetingHandler = declineMeetingHandler;
 function completeMeetingHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var session, meetingId, meeting, user, project, error_14;
+        var session, meetingId, meeting, user, project, error_15;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0: return [4 /*yield*/, mongoose_1.default.startSession()];
@@ -1178,13 +1228,13 @@ function completeMeetingHandler(req, res) {
                     res.send({ message: "your meeting has been completed" });
                     return [3 /*break*/, 11];
                 case 9:
-                    error_14 = _a.sent();
+                    error_15 = _a.sent();
                     //@ts-ignore
                     return [4 /*yield*/, session.abortTransaction()];
                 case 10:
                     //@ts-ignore
                     _a.sent();
-                    checkErrors_1.default(error_14, res);
+                    checkErrors_1.default(error_15, res);
                     return [3 /*break*/, 11];
                 case 11: return [2 /*return*/];
             }
@@ -1194,7 +1244,7 @@ function completeMeetingHandler(req, res) {
 exports.completeMeetingHandler = completeMeetingHandler;
 function createTaskCustomerHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var session, _a, employeeId_1, description, name_2, expectedEndDate, projectId, priority, user, project, employee, index, conversation, primaryEmployee, input, task, error_15;
+        var session, _a, employeeId_1, description, name_2, expectedEndDate, projectId, priority, user, project, employee, index, conversation, primaryEmployee, input, task, error_16;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0: return [4 /*yield*/, mongoose_1.default.startSession()];
@@ -1299,11 +1349,11 @@ function createTaskCustomerHandler(req, res) {
                     res.send(__assign(__assign({}, task.toJSON()), { assignedEmployee: employee }));
                     return [3 /*break*/, 16];
                 case 14:
-                    error_15 = _b.sent();
+                    error_16 = _b.sent();
                     return [4 /*yield*/, session.abortTransaction()];
                 case 15:
                     _b.sent();
-                    checkErrors_1.default(error_15, res);
+                    checkErrors_1.default(error_16, res);
                     return [3 /*break*/, 16];
                 case 16: return [2 /*return*/];
             }
@@ -1314,7 +1364,7 @@ exports.createTaskCustomerHandler = createTaskCustomerHandler;
 function assignTaskToEmployeeHandler(req, res) {
     var _a, _b;
     return __awaiter(this, void 0, void 0, function () {
-        var _c, taskId, employeeId_2, user, task_2, project, employee, conversation, index_1, date, timeLog, index, error_16;
+        var _c, taskId, employeeId_2, user, task_2, project, employee, conversation, index_1, date, timeLog, index, error_17;
         return __generator(this, function (_d) {
             switch (_d.label) {
                 case 0:
@@ -1438,8 +1488,8 @@ function assignTaskToEmployeeHandler(req, res) {
                     });
                     return [3 /*break*/, 8];
                 case 7:
-                    error_16 = _d.sent();
-                    checkErrors_1.default(error_16, res);
+                    error_17 = _d.sent();
+                    checkErrors_1.default(error_17, res);
                     return [3 /*break*/, 8];
                 case 8: return [2 /*return*/];
             }
@@ -1449,7 +1499,7 @@ function assignTaskToEmployeeHandler(req, res) {
 exports.assignTaskToEmployeeHandler = assignTaskToEmployeeHandler;
 function commitMeetingHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var session, user, meeting, index, error_17;
+        var session, user, meeting, index, error_18;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0: return [4 /*yield*/, mongoose_1.default.startSession()];
@@ -1494,11 +1544,11 @@ function commitMeetingHandler(req, res) {
                     res.send({ message: "meeting is confirmed by you" });
                     return [3 /*break*/, 9];
                 case 7:
-                    error_17 = _a.sent();
+                    error_18 = _a.sent();
                     return [4 /*yield*/, session.abortTransaction()];
                 case 8:
                     _a.sent();
-                    checkErrors_1.default(error_17, res);
+                    checkErrors_1.default(error_18, res);
                     return [3 /*break*/, 9];
                 case 9: return [2 /*return*/];
             }
@@ -1508,7 +1558,7 @@ function commitMeetingHandler(req, res) {
 exports.commitMeetingHandler = commitMeetingHandler;
 function abortMeetingHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var session, _a, meetingId, comment, user, meeting_3, index, error_18;
+        var session, _a, meetingId, comment, user, meeting_3, index, error_19;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0: return [4 /*yield*/, mongoose_1.default.startSession()];
@@ -1548,11 +1598,11 @@ function abortMeetingHandler(req, res) {
                     res.send({ message: "meeting is confirmed by you" });
                     return [3 /*break*/, 9];
                 case 7:
-                    error_18 = _b.sent();
+                    error_19 = _b.sent();
                     return [4 /*yield*/, session.abortTransaction()];
                 case 8:
                     _b.sent();
-                    checkErrors_1.default(error_18, res);
+                    checkErrors_1.default(error_19, res);
                     return [3 /*break*/, 9];
                 case 9: return [2 /*return*/];
             }

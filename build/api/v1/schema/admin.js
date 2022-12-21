@@ -2,9 +2,9 @@
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
-var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l;
+var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.addHolidaySchema = exports.addBranchSchema = exports.addTemplateSchema = exports.updateMeetingEmployeeSchema = exports.requestMeetingSchema = exports.assignEmployeeToCustomerSchema = exports.assignPrimaryEmployeeSchema = exports.assignTaskToEmployeeSchema = exports.updateTaskSchema = exports.createTaskSchema = exports.toggleAttendanceSchema = exports.approveHolidaySchema = exports.addCommentSchema = exports.updateProjectSchema = exports.createProjectSchema = exports.changePaymentStatusManuallySchema = exports.createInvoiceSchema = exports.createQuotationSchema = void 0;
+exports.addHolidaySchema = exports.addBranchSchema = exports.addTemplateSchema = exports.updateMeetingEmployeeSchema = exports.addMeetingSchema = exports.requestMeetingSchema = exports.assignEmployeeToCustomerSchema = exports.assignPrimaryEmployeeSchema = exports.assignTaskToEmployeeSchema = exports.updateTaskSchema = exports.createTaskSchema = exports.toggleAttendanceSchema = exports.approveHolidaySchema = exports.addCommentSchema = exports.updateProjectSchema = exports.createProjectSchema = exports.changePaymentStatusManuallySchema = exports.createInvoiceSchema = exports.createQuotationSchema = void 0;
 var joi_1 = require("joi");
 var priority_1 = __importDefault(require("../enums/priority"));
 var enumArray_1 = __importDefault(require("../helpers/enumArray"));
@@ -173,6 +173,20 @@ exports.requestMeetingSchema = joi_1.object({
         startDate: joi_1.date().required(),
         mode: (_l = joi_1.string())
             .valid.apply(_l, enumArray_1.default(meetingMode_1.default)).required(),
+        slotTime: joi_1.number(),
+        endDate: joi_1.string(),
+        comment: joi_1.string().default(""),
+        requestedLocation: pointLocationSchema,
+        employeeId: joi_1.string(),
+    })
+        .required()
+        .strict(),
+});
+exports.addMeetingSchema = joi_1.object({
+    body: joi_1.object({
+        startDate: joi_1.date().required(),
+        mode: (_m = joi_1.string())
+            .valid.apply(_m, enumArray_1.default(meetingMode_1.default)).required(),
         slotTime: joi_1.number(),
         endDate: joi_1.string(),
         comment: joi_1.string().default(""),

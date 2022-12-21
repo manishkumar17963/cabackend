@@ -3,6 +3,7 @@ import { updateStatusHandler } from "../controllers/admin";
 import {
   addCommentHandler,
   addHolidayRequestHandler,
+  addMeetingHandler,
   assignTaskToEmployeeHandler,
   completeProjectHandler,
   completeTaskHandler,
@@ -78,6 +79,12 @@ EmployeeRouter.post(
   "/add/meeting",
   [validate(requestMeetingSchema), authRequired(Employee)],
   requestMeetingHandler
+);
+
+EmployeeRouter.post(
+  "/add/other/meeting",
+  [authRequired(Employee)],
+  addMeetingHandler
 );
 
 EmployeeRouter.post(

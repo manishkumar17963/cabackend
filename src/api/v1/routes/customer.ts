@@ -1,5 +1,8 @@
 import express from "express";
+
 import {
+  addKycHandler,
+  addMeetingHandler,
   createCustomerHandler,
   createProjectForCustomerHandler,
   customerConnectMeetingHandler,
@@ -40,6 +43,8 @@ CustomerRouter.post(
   verifyCustomerHandler
 );
 
+CustomerRouter.post("/add/kyc", authRequired(Customer), addKycHandler);
+
 CustomerRouter.post(
   "/invoice/payment/:invoiceId",
   authRequired(Customer),
@@ -70,6 +75,12 @@ CustomerRouter.post(
   "/add/meeting",
   [validate(requestMeetingSchema), authRequired(Customer)],
   requestMeetingHandler
+);
+
+CustomerRouter.post(
+  "/add/other/meeting",
+  [authRequired(Customer)],
+  addMeetingHandler
 );
 CustomerRouter.get("/status", authRequired(Customer), getStatusHandler);
 
