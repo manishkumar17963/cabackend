@@ -1494,6 +1494,32 @@ export async function initialDataHandler(socket: Socket) {
       },
 
       { $unwind: "$branch" },
+      {
+        $lookup: {
+          from: "customers",
+          let: { customerId: "$customerId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$_id", "$$customerId"],
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 1,
+                email: 1,
+                number: 1,
+                kycDetails: 1,
+                state: 1,
+              },
+            },
+          ],
+          as: "user",
+        },
+      },
+      { $unwind: "$user" },
       { $group: { _id: "$projectId", quotations: { $push: "$$ROOT" } } },
     ]);
     const invoices = await aggregateInvoice([
@@ -1515,6 +1541,32 @@ export async function initialDataHandler(socket: Socket) {
         },
       },
       { $unwind: "$branch" },
+      {
+        $lookup: {
+          from: "customers",
+          let: { customerId: "$customerId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$_id", "$$customerId"],
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 1,
+                email: 1,
+                number: 1,
+                kycDetails: 1,
+                state: 1,
+              },
+            },
+          ],
+          as: "user",
+        },
+      },
+      { $unwind: "$user" },
       { $group: { _id: "$projectId", invoice: { $push: "$$ROOT" } } },
       { $unwind: "$invoice" },
     ]);

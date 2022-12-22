@@ -50,11 +50,14 @@ var sendBy_1 = __importDefault(require("../enums/sendBy"));
 var KycSchema = new mongoose_1.default.Schema({
     gstNumber: {
         type: String,
-        required: function () {
-            //@ts-ignore
-            return _this.companyType == companyType_1.default.Company;
-        },
     },
+    address: {
+        type: String,
+        required: true,
+    },
+    pincode: { type: Number, required: true },
+    city: { type: String, required: true },
+    state: { type: String, required: true },
     companyDocument: {
         type: String,
         required: function () {
@@ -62,18 +65,18 @@ var KycSchema = new mongoose_1.default.Schema({
             return _this.companyType == companyType_1.default.Company;
         },
     },
-    noOfEmployees: { type: String, required: true },
+    noOfEmployees: { type: String },
     personalDocument: {
         type: String,
         required: true,
     },
-    addressDocument: { type: String, required: true },
+    accept: { type: Boolean, required: true },
     companyType: {
         type: String,
         required: true,
         enum: enumArray_1.default(companyType_1.default),
     },
-});
+}, { timestamps: true, _id: false });
 var CustomerSchema = new mongoose_1.default.Schema({
     firstname: {
         type: String,
@@ -88,9 +91,9 @@ var CustomerSchema = new mongoose_1.default.Schema({
     // },
     kycDetails: KycSchema,
     gstNumber: { type: String },
-    state: { type: String, required: true },
     lastname: { type: String },
     assignedEmployee: String,
+    state: String,
     companyLocation: { type: common_1.PointLocationSchema },
     email: { type: String, required: true },
     kycVerified: { type: Boolean, default: false },

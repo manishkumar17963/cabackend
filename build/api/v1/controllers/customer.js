@@ -228,13 +228,22 @@ function addKycHandler(req, res) {
                     if (user.kycVerified) {
                         throw new customError_1.default("Bad Request", 404, "Kyc already verified");
                     }
-                    console.log("body", req.body);
-                    user.kycDetails = req.body;
-                    if (req.body.gstNumber) {
-                        state = gstWithState_1.default(req.body.gstNumber);
-                        user.state = state;
-                        user.gstNumber = req.body.gstNumber;
+                    if (!req.body.accept) {
+                        throw new customError_1.default("Bad Request", 404, "Please accept privacy policy");
                     }
+                    console.log("body", req.body);
+                    if (req.body.gstNumber != undefined) {
+                        if (req.body.gstNumber != "") {
+                            state = gstWithState_1.default(req.body.gstNumber);
+                            user.state = state;
+                            user.gstNumber = req.body.gstNumber;
+                        }
+                        else {
+                            req.body.gstNumber = undefined;
+                            user.gstNumber = undefined;
+                        }
+                    }
+                    user.kycDetails = req.body;
                     return [4 /*yield*/, user.save()];
                 case 1:
                     _a.sent();

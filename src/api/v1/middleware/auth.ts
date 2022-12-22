@@ -6,6 +6,7 @@ import CustomJwtPayload from "../interfaces/jwtPayload";
 import CustomError from "../helpers/customError";
 import checkError from "../helpers/checkErrors";
 import Admin from "../models/admin";
+import Customer from "../models/customer";
 
 declare global {
   namespace Express {

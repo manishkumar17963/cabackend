@@ -13,9 +13,12 @@ interface KycDocument {
   gstNumber?: string;
   companyDocument?: string;
   personalDocument: string;
-  addressDocument: string;
+  address: string;
+  city: string;
+  state: string;
+  pincode: number;
   companyType: CompanyType;
-  noOfEmployees: string;
+  noOfEmployees?: string;
 }
 
 export interface CustomerDocument extends mongoose.Document, BaseIdentifier {
@@ -26,7 +29,7 @@ export interface CustomerDocument extends mongoose.Document, BaseIdentifier {
   firstname: string;
   importantFiles: mongoose.Types.ObjectId[];
   gstNumber?: string;
-  state: string;
+  state?: string;
   kycDetails?: KycDocument;
   lastname?: string;
 
@@ -39,33 +42,40 @@ export interface CustomerDocument extends mongoose.Document, BaseIdentifier {
   // companyType: CompanyType;
 }
 
-const KycSchema = new mongoose.Schema({
-  gstNumber: {
-    type: String,
-    required: () => {
-      //@ts-ignore
-      return this.companyType == CompanyType.Company;
+const KycSchema = new mongoose.Schema(
+  {
+    gstNumber: {
+      type: String,
+    },
+    address: {
+      type: String,
+      required: true,
+    },
+    pincode: { type: Number, required: true },
+    city: { type: String, required: true },
+    state: { type: String, required: true },
+    companyDocument: {
+      type: String,
+      required: () => {
+        //@ts-ignore
+        return this.companyType == CompanyType.Company;
+      },
+    },
+    noOfEmployees: { type: String },
+    personalDocument: {
+      type: String,
+      required: true,
+    },
+    accept: { type: Boolean, required: true },
+
+    companyType: {
+      type: String,
+      required: true,
+      enum: convertEnumToArray(CompanyType),
     },
   },
-  companyDocument: {
-    type: String,
-    required: () => {
-      //@ts-ignore
-      return this.companyType == CompanyType.Company;
-    },
-  },
-  noOfEmployees: { type: String, required: true },
-  personalDocument: {
-    type: String,
-    required: true,
-  },
-  addressDocument: { type: String, required: true },
-  companyType: {
-    type: String,
-    required: true,
-    enum: convertEnumToArray(CompanyType),
-  },
-});
+  { timestamps: true, _id: false }
+);
 
 var CustomerSchema = new mongoose.Schema(
   {
@@ -82,9 +92,10 @@ var CustomerSchema = new mongoose.Schema(
     // },
     kycDetails: KycSchema,
     gstNumber: { type: String },
-    state: { type: String, required: true },
+
     lastname: { type: String },
     assignedEmployee: String,
+    state: String,
     companyLocation: { type: PointLocationSchema },
     email: { type: String, required: true },
     kycVerified: { type: Boolean, default: false },
