@@ -1529,8 +1529,11 @@ export async function approveHolidayHandler(req: Request, res: Response) {
     }
     const index = employee.sickLeave.findIndex((value, index) => {
       if (
-        moment(value.date).month() <=
-        moment(employee.holidayRequest[0].date).month()
+        moment(value.date)
+          .startOf("month")
+          .isSameOrBefore(
+            moment(employee.holidayRequest[0].date).startOf("month")
+          )
       ) {
         return true;
       } else {

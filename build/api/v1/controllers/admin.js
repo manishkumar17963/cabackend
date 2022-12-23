@@ -1643,8 +1643,9 @@ function approveHolidayHandler(req, res) {
                         throw new customError_1.default("Bad Request", 404, "No such holiday found for this employee");
                     }
                     index = employee_2.sickLeave.findIndex(function (value, index) {
-                        if (moment_1.default(value.date).month() <=
-                            moment_1.default(employee_2.holidayRequest[0].date).month()) {
+                        if (moment_1.default(value.date)
+                            .startOf("month")
+                            .isSameOrBefore(moment_1.default(employee_2.holidayRequest[0].date).startOf("month"))) {
                             return true;
                         }
                         else {

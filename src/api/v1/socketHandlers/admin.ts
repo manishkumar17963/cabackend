@@ -61,7 +61,11 @@ import {
 } from "../services/employee";
 import { aggregateHoliday, findHoliday } from "../services/holiday";
 import { aggregateInvoice } from "../services/invoice.service";
-import { aggregateMeeting, findMeeting } from "../services/meeting";
+import {
+  aggregateMeeting,
+  findAndUpdateMeeting,
+  findMeeting,
+} from "../services/meeting";
 import { aggregateMessage } from "../services/message.Service";
 import {
   aggregateProject,
@@ -74,6 +78,7 @@ import { aggregateTask, findAllTask, findTask } from "../services/task";
 import { aggregateTemplate } from "../services/template.service";
 import MeetingType from "../enums/meetingType";
 import ReportView from "../enums/projectReport";
+import MeetingStatus from "../enums/meetingStatus";
 
 export function adminSocketHandler(socket: Socket) {
   //@ts-ignore
@@ -237,6 +242,14 @@ export function adminSocketHandler(socket: Socket) {
     socket.on("admin-holiday", async (data) => {
       await adminHolidayHandler(socket, data);
     });
+
+    socket.on("admin-complete-meeting", async (data, callback) => {
+      await completeMeetingHandler(socket, data, callback);
+    });
+
+    socket.on("admin-cancel-meeting", async (data, callback) => {
+      await cancelMeetingHandler(socket, data, callback);
+    });
   }
 }
 
@@ -282,6 +295,52 @@ export async function employeeDailyReport(
     callback({ status: 200, data: timeLogs });
   } catch (err) {
     console.log(err);
+  }
+}
+
+export async function cancelMeetingHandler(
+  socket: Socket,
+  data: { meetingId: string },
+  callback: (data: any) => void
+) {
+  try {
+    const meeting = await findMeeting({ _id: data.meetingId });
+    if (!meeting) {
+      throw new CustomError("Bad Request", 404, "No such meeting found");
+    } else {
+      if (meeting.meetingStatus == MeetingStatus.Completed) {
+        throw new CustomError("Bad Request", 404, "Meeting Already completed");
+      } else {
+        meeting.meetingStatus = MeetingStatus.Declined;
+        await meeting.save();
+      }
+    }
+    callback({ status: 200, message: "Meeting successfully cancelled" });
+  } catch (err: any) {
+    callback({ status: 400, message: err?.message });
+  }
+}
+
+export async function completeMeetingHandler(
+  socket: Socket,
+  data: { meetingId: string },
+  callback: (data: any) => void
+) {
+  try {
+    const meeting = await findMeeting({ _id: data.meetingId });
+    if (!meeting) {
+      throw new CustomError("Bad Request", 404, "No such meeting found");
+    } else {
+      if (meeting.meetingStatus == MeetingStatus.Declined) {
+        throw new CustomError("Bad Request", 404, "Meeting Already Declined");
+      } else {
+        meeting.meetingStatus = MeetingStatus.Completed;
+        await meeting.save();
+      }
+    }
+    callback({ status: 200, message: "Meeting successfully Completed" });
+  } catch (err: any) {
+    callback({ status: 400, message: err?.message });
   }
 }
 
@@ -545,8 +604,11 @@ export async function approveLeaveHandler(
 
     const index = employee.sickLeave.findIndex((value, index) => {
       if (
-        moment(value.date).month() <=
-        moment(employee.holidayRequest[0].date).month()
+        moment(value.date)
+          .startOf("month")
+          .isSameOrBefore(
+            moment(employee.holidayRequest[0].date).startOf("month")
+          )
       ) {
         return true;
       } else {
@@ -671,21 +733,22 @@ export async function addSickHandler(
     if (!employee) {
       throw new CustomError("Bad Request", 400, "No such employee found");
     }
+
     const lastLeave = employee?.sickLeave?.[0];
     console.log(
       "data",
       JSON.stringify(data),
-      lastLeave.date,
+      lastLeave?.date,
       moment(data.sickLeave.date).startOf("month").toDate()
     );
     if (lastLeave) {
       if (
         moment(data.sickLeave.date)
           .startOf("month")
-          .isBefore(
-            moment(lastLeave.date).add(1, "months") && moment().startOf("month")
-          ) ||
-        moment(data.sickLeave.date).startOf("month").isBefore(moment())
+          .isBefore(moment(lastLeave.date).add(1, "months")) ||
+        moment(data.sickLeave.date)
+          .startOf("month")
+          .isBefore(moment().startOf("month"))
       ) {
         throw new CustomError(
           "Bad Request",
@@ -696,7 +759,11 @@ export async function addSickHandler(
         employee.sickLeave = [data.sickLeave, ...employee.sickLeave];
       }
     } else {
-      if (moment(data.sickLeave.date).startOf("month").isBefore(moment())) {
+      if (
+        moment(data.sickLeave.date)
+          .startOf("month")
+          .isBefore(moment().startOf("month"))
+      ) {
         throw new CustomError(
           "Bad Request",
           400,

@@ -57,7 +57,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.addInvoiceData = exports.addQuotationData = exports.addInvoiceHandler = exports.addTemplateHandler = exports.addBranchHandler = exports.sendConversationHandler = exports.addProjectHandler = exports.updateSocketProjectPrimaryEmployee = exports.addSocketProjectHandler = exports.deleteSocketProjectHandler = exports.addConversationHandler = exports.updateConversationHandler = exports.deleteConversationHandler = exports.initialDataHandler = exports.updateProjectStatusHandler = exports.imageDetailHandler = exports.storageProjectImageHandler = exports.storageImportantImageHandler = exports.removeImportantHandler = exports.addImportantHandler = exports.storageProjectHandler = exports.employeeStorageHandler = exports.employeeSrisudhaHandler = exports.assignEmployeeMeeting = exports.startAttendanceHandler = exports.sickLeaveHandler = exports.denyAttendanceHandler = exports.adminBranchHandler = exports.approveAttendanceHandler = exports.employeeTasksHandler = exports.addSickHandler = exports.denyLeaveHandler = exports.approveLeaveHandler = exports.employeeMonthlyReportHandler = exports.verifyKycHandler = exports.adminProjectReport = exports.employeeDailyReport = exports.adminSocketHandler = void 0;
+exports.addInvoiceData = exports.addQuotationData = exports.addInvoiceHandler = exports.addTemplateHandler = exports.addBranchHandler = exports.sendConversationHandler = exports.addProjectHandler = exports.updateSocketProjectPrimaryEmployee = exports.addSocketProjectHandler = exports.deleteSocketProjectHandler = exports.addConversationHandler = exports.updateConversationHandler = exports.deleteConversationHandler = exports.initialDataHandler = exports.updateProjectStatusHandler = exports.imageDetailHandler = exports.storageProjectImageHandler = exports.storageImportantImageHandler = exports.removeImportantHandler = exports.addImportantHandler = exports.storageProjectHandler = exports.employeeStorageHandler = exports.employeeSrisudhaHandler = exports.assignEmployeeMeeting = exports.startAttendanceHandler = exports.sickLeaveHandler = exports.denyAttendanceHandler = exports.adminBranchHandler = exports.approveAttendanceHandler = exports.employeeTasksHandler = exports.addSickHandler = exports.denyLeaveHandler = exports.approveLeaveHandler = exports.employeeMonthlyReportHandler = exports.verifyKycHandler = exports.adminProjectReport = exports.completeMeetingHandler = exports.cancelMeetingHandler = exports.employeeDailyReport = exports.adminSocketHandler = void 0;
 var moment_1 = __importDefault(require("moment"));
 var mongoose_1 = __importDefault(require("mongoose"));
 var serverStore_1 = require("../../../socket/serverStore");
@@ -91,6 +91,7 @@ var task_1 = require("../services/task");
 var template_service_1 = require("../services/template.service");
 var meetingType_1 = __importDefault(require("../enums/meetingType"));
 var projectReport_1 = __importDefault(require("../enums/projectReport"));
+var meetingStatus_1 = __importDefault(require("../enums/meetingStatus"));
 function adminSocketHandler(socket) {
     var _this = this;
     //@ts-ignore
@@ -517,6 +518,26 @@ function adminSocketHandler(socket) {
                 }
             });
         }); });
+        socket.on("admin-complete-meeting", function (data, callback) { return __awaiter(_this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, completeMeetingHandler(socket, data, callback)];
+                    case 1:
+                        _a.sent();
+                        return [2 /*return*/];
+                }
+            });
+        }); });
+        socket.on("admin-cancel-meeting", function (data, callback) { return __awaiter(_this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, cancelMeetingHandler(socket, data, callback)];
+                    case 1:
+                        _a.sent();
+                        return [2 /*return*/];
+                }
+            });
+        }); });
     }
 }
 exports.adminSocketHandler = adminSocketHandler;
@@ -574,9 +595,77 @@ function employeeDailyReport(socket, data, callback) {
     });
 }
 exports.employeeDailyReport = employeeDailyReport;
+function cancelMeetingHandler(socket, data, callback) {
+    return __awaiter(this, void 0, void 0, function () {
+        var meeting, err_2;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    _a.trys.push([0, 6, , 7]);
+                    return [4 /*yield*/, meeting_2.findMeeting({ _id: data.meetingId })];
+                case 1:
+                    meeting = _a.sent();
+                    if (!!meeting) return [3 /*break*/, 2];
+                    throw new customError_1.default("Bad Request", 404, "No such meeting found");
+                case 2:
+                    if (!(meeting.meetingStatus == meetingStatus_1.default.Completed)) return [3 /*break*/, 3];
+                    throw new customError_1.default("Bad Request", 404, "Meeting Already completed");
+                case 3:
+                    meeting.meetingStatus = meetingStatus_1.default.Declined;
+                    return [4 /*yield*/, meeting.save()];
+                case 4:
+                    _a.sent();
+                    _a.label = 5;
+                case 5:
+                    callback({ status: 200, message: "Meeting successfully cancelled" });
+                    return [3 /*break*/, 7];
+                case 6:
+                    err_2 = _a.sent();
+                    callback({ status: 400, message: err_2 === null || err_2 === void 0 ? void 0 : err_2.message });
+                    return [3 /*break*/, 7];
+                case 7: return [2 /*return*/];
+            }
+        });
+    });
+}
+exports.cancelMeetingHandler = cancelMeetingHandler;
+function completeMeetingHandler(socket, data, callback) {
+    return __awaiter(this, void 0, void 0, function () {
+        var meeting, err_3;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    _a.trys.push([0, 6, , 7]);
+                    return [4 /*yield*/, meeting_2.findMeeting({ _id: data.meetingId })];
+                case 1:
+                    meeting = _a.sent();
+                    if (!!meeting) return [3 /*break*/, 2];
+                    throw new customError_1.default("Bad Request", 404, "No such meeting found");
+                case 2:
+                    if (!(meeting.meetingStatus == meetingStatus_1.default.Declined)) return [3 /*break*/, 3];
+                    throw new customError_1.default("Bad Request", 404, "Meeting Already Declined");
+                case 3:
+                    meeting.meetingStatus = meetingStatus_1.default.Completed;
+                    return [4 /*yield*/, meeting.save()];
+                case 4:
+                    _a.sent();
+                    _a.label = 5;
+                case 5:
+                    callback({ status: 200, message: "Meeting successfully Completed" });
+                    return [3 /*break*/, 7];
+                case 6:
+                    err_3 = _a.sent();
+                    callback({ status: 400, message: err_3 === null || err_3 === void 0 ? void 0 : err_3.message });
+                    return [3 /*break*/, 7];
+                case 7: return [2 /*return*/];
+            }
+        });
+    });
+}
+exports.completeMeetingHandler = completeMeetingHandler;
 function adminProjectReport(socket, data, callback) {
     return __awaiter(this, void 0, void 0, function () {
-        var value, tasks, err_2;
+        var value, tasks, err_4;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -672,10 +761,10 @@ function adminProjectReport(socket, data, callback) {
                     _a.label = 4;
                 case 4: return [3 /*break*/, 6];
                 case 5:
-                    err_2 = _a.sent();
-                    console.log("mes", err_2);
+                    err_4 = _a.sent();
+                    console.log("mes", err_4);
                     //@ts-ignore
-                    callback({ status: 400, message: err_2.message });
+                    callback({ status: 400, message: err_4.message });
                     return [3 /*break*/, 6];
                 case 6: return [2 /*return*/];
             }
@@ -686,7 +775,7 @@ exports.adminProjectReport = adminProjectReport;
 function verifyKycHandler(socket, data, callback) {
     var _a;
     return __awaiter(this, void 0, void 0, function () {
-        var customer, connection, err_3;
+        var customer, connection, err_5;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
@@ -706,9 +795,9 @@ function verifyKycHandler(socket, data, callback) {
                     callback({ status: 200, message: "Kyc successfully verified" });
                     return [3 /*break*/, 4];
                 case 3:
-                    err_3 = _b.sent();
+                    err_5 = _b.sent();
                     //@ts-ignore
-                    callback({ status: 400, message: err_3.message });
+                    callback({ status: 400, message: err_5.message });
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -718,7 +807,7 @@ function verifyKycHandler(socket, data, callback) {
 exports.verifyKycHandler = verifyKycHandler;
 function employeeMonthlyReportHandler(socket, data, callback) {
     return __awaiter(this, void 0, void 0, function () {
-        var date_1, employee, query, attendances, markAttendance, holidays, sickLeave, hours, seconds, err_4;
+        var date_1, employee, query, attendances, markAttendance, holidays, sickLeave, hours, seconds, err_6;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -795,9 +884,9 @@ function employeeMonthlyReportHandler(socket, data, callback) {
                     });
                     return [3 /*break*/, 6];
                 case 5:
-                    err_4 = _a.sent();
+                    err_6 = _a.sent();
                     //@ts-ignore
-                    callback({ status: 400, message: err_4.message });
+                    callback({ status: 400, message: err_6.message });
                     return [3 /*break*/, 6];
                 case 6: return [2 /*return*/];
             }
@@ -839,8 +928,9 @@ function approveLeaveHandler(socket, data, callback) {
                         throw new customError_1.default("Bad Request", 400, "date already passed");
                     }
                     index = employee_2.sickLeave.findIndex(function (value, index) {
-                        if (moment_1.default(value.date).month() <=
-                            moment_1.default(employee_2.holidayRequest[0].date).month()) {
+                        if (moment_1.default(value.date)
+                            .startOf("month")
+                            .isSameOrBefore(moment_1.default(employee_2.holidayRequest[0].date).startOf("month"))) {
                             return true;
                         }
                         else {
@@ -979,7 +1069,7 @@ exports.denyLeaveHandler = denyLeaveHandler;
 function addSickHandler(socket, data, callback) {
     var _a;
     return __awaiter(this, void 0, void 0, function () {
-        var employee, lastLeave, err_5;
+        var employee, lastLeave, err_7;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
@@ -991,12 +1081,14 @@ function addSickHandler(socket, data, callback) {
                         throw new customError_1.default("Bad Request", 400, "No such employee found");
                     }
                     lastLeave = (_a = employee === null || employee === void 0 ? void 0 : employee.sickLeave) === null || _a === void 0 ? void 0 : _a[0];
-                    console.log("data", JSON.stringify(data), lastLeave.date, moment_1.default(data.sickLeave.date).startOf("month").toDate());
+                    console.log("data", JSON.stringify(data), lastLeave === null || lastLeave === void 0 ? void 0 : lastLeave.date, moment_1.default(data.sickLeave.date).startOf("month").toDate());
                     if (lastLeave) {
                         if (moment_1.default(data.sickLeave.date)
                             .startOf("month")
-                            .isBefore(moment_1.default(lastLeave.date).add(1, "months") && moment_1.default().startOf("month")) ||
-                            moment_1.default(data.sickLeave.date).startOf("month").isBefore(moment_1.default())) {
+                            .isBefore(moment_1.default(lastLeave.date).add(1, "months")) ||
+                            moment_1.default(data.sickLeave.date)
+                                .startOf("month")
+                                .isBefore(moment_1.default().startOf("month"))) {
                             throw new customError_1.default("Bad Request", 400, "This month is already added or passed");
                         }
                         else {
@@ -1004,7 +1096,9 @@ function addSickHandler(socket, data, callback) {
                         }
                     }
                     else {
-                        if (moment_1.default(data.sickLeave.date).startOf("month").isBefore(moment_1.default())) {
+                        if (moment_1.default(data.sickLeave.date)
+                            .startOf("month")
+                            .isBefore(moment_1.default().startOf("month"))) {
                             throw new customError_1.default("Bad Request", 400, "This month is already added or passed");
                         }
                         else {
@@ -1017,10 +1111,10 @@ function addSickHandler(socket, data, callback) {
                     callback({ status: 200, message: "Sickleave successfully added" });
                     return [3 /*break*/, 4];
                 case 3:
-                    err_5 = _b.sent();
-                    console.log("error", err_5);
+                    err_7 = _b.sent();
+                    console.log("error", err_7);
                     //@ts-ignore
-                    callback({ status: 400, message: err_5.message });
+                    callback({ status: 400, message: err_7.message });
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -1030,7 +1124,7 @@ function addSickHandler(socket, data, callback) {
 exports.addSickHandler = addSickHandler;
 function employeeTasksHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var tasks, err_6;
+        var tasks, err_8;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -1041,7 +1135,7 @@ function employeeTasksHandler(socket, data) {
                     socket.emit("employee-task-result", tasks);
                     return [3 /*break*/, 3];
                 case 2:
-                    err_6 = _a.sent();
+                    err_8 = _a.sent();
                     return [3 /*break*/, 3];
                 case 3: return [2 /*return*/];
             }
@@ -1051,7 +1145,7 @@ function employeeTasksHandler(socket, data) {
 exports.employeeTasksHandler = employeeTasksHandler;
 function approveAttendanceHandler(socket, data, callback) {
     return __awaiter(this, void 0, void 0, function () {
-        var session, attendance, err_7;
+        var session, attendance, err_9;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0: return [4 /*yield*/, mongoose_1.default.startSession()];
@@ -1076,12 +1170,12 @@ function approveAttendanceHandler(socket, data, callback) {
                     callback({ status: 200, message: "Attendance successfully approved" });
                     return [2 /*return*/];
                 case 5:
-                    err_7 = _a.sent();
+                    err_9 = _a.sent();
                     return [4 /*yield*/, session.abortTransaction()];
                 case 6:
                     _a.sent();
                     //@ts-ignore
-                    callback({ status: 400, message: err_7.message });
+                    callback({ status: 400, message: err_9.message });
                     return [3 /*break*/, 7];
                 case 7: return [2 /*return*/];
             }
@@ -1091,7 +1185,7 @@ function approveAttendanceHandler(socket, data, callback) {
 exports.approveAttendanceHandler = approveAttendanceHandler;
 function adminBranchHandler(socket) {
     return __awaiter(this, void 0, void 0, function () {
-        var branches, err_8;
+        var branches, err_10;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -1102,7 +1196,7 @@ function adminBranchHandler(socket) {
                     socket.emit("admin-branch-result", branches);
                     return [3 /*break*/, 3];
                 case 2:
-                    err_8 = _a.sent();
+                    err_10 = _a.sent();
                     return [3 /*break*/, 3];
                 case 3: return [2 /*return*/];
             }
@@ -1112,7 +1206,7 @@ function adminBranchHandler(socket) {
 exports.adminBranchHandler = adminBranchHandler;
 function denyAttendanceHandler(socket, data, callback) {
     return __awaiter(this, void 0, void 0, function () {
-        var session, attendance, err_9;
+        var session, attendance, err_11;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0: return [4 /*yield*/, mongoose_1.default.startSession()];
@@ -1137,12 +1231,12 @@ function denyAttendanceHandler(socket, data, callback) {
                     callback({ status: 200, message: "Attendance successfully denied" });
                     return [2 /*return*/];
                 case 5:
-                    err_9 = _a.sent();
+                    err_11 = _a.sent();
                     return [4 /*yield*/, session.abortTransaction()];
                 case 6:
                     _a.sent();
                     //@ts-ignore
-                    callback({ status: 400, message: err_9.message });
+                    callback({ status: 400, message: err_11.message });
                     return [3 /*break*/, 7];
                 case 7: return [2 /*return*/];
             }
@@ -1152,7 +1246,7 @@ function denyAttendanceHandler(socket, data, callback) {
 exports.denyAttendanceHandler = denyAttendanceHandler;
 function sickLeaveHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var employee, err_10;
+        var employee, err_12;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -1171,8 +1265,8 @@ function sickLeaveHandler(socket, data) {
                     }
                     return [3 /*break*/, 3];
                 case 2:
-                    err_10 = _a.sent();
-                    console.log("err", err_10);
+                    err_12 = _a.sent();
+                    console.log("err", err_12);
                     return [3 /*break*/, 3];
                 case 3: return [2 /*return*/];
             }
@@ -1182,7 +1276,7 @@ function sickLeaveHandler(socket, data) {
 exports.sickLeaveHandler = sickLeaveHandler;
 function adminEmployeeAttendanceHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var attendances, err_11;
+        var attendances, err_13;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -1209,8 +1303,8 @@ function adminEmployeeAttendanceHandler(socket, data) {
                     socket.emit("employee-attendance-result", attendances);
                     return [3 /*break*/, 3];
                 case 2:
-                    err_11 = _a.sent();
-                    console.log("error", err_11);
+                    err_13 = _a.sent();
+                    console.log("error", err_13);
                     return [3 /*break*/, 3];
                 case 3: return [2 /*return*/];
             }
@@ -1219,7 +1313,7 @@ function adminEmployeeAttendanceHandler(socket, data) {
 }
 function adminSaveSettingHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, setting, err_12;
+        var user, setting, err_14;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -1244,8 +1338,8 @@ function adminSaveSettingHandler(socket, data) {
                     console.log("setting", setting);
                     return [3 /*break*/, 7];
                 case 6:
-                    err_12 = _a.sent();
-                    console.log("error", err_12);
+                    err_14 = _a.sent();
+                    console.log("error", err_14);
                     return [3 /*break*/, 7];
                 case 7: return [2 /*return*/];
             }
@@ -1254,7 +1348,7 @@ function adminSaveSettingHandler(socket, data) {
 }
 function adminGetSettingHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, setting, err_13;
+        var user, setting, err_15;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -1267,8 +1361,8 @@ function adminGetSettingHandler(socket, data) {
                     socket.emit("admin-setting-result", setting !== null && setting !== void 0 ? setting : {});
                     return [3 /*break*/, 3];
                 case 2:
-                    err_13 = _a.sent();
-                    console.log("error", err_13);
+                    err_15 = _a.sent();
+                    console.log("error", err_15);
                     return [3 /*break*/, 3];
                 case 3: return [2 /*return*/];
             }
@@ -1277,7 +1371,7 @@ function adminGetSettingHandler(socket, data) {
 }
 function adminMeetingDateHandler(socket, data, callback) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, match, meetings, err_14;
+        var user, match, meetings, err_16;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -1409,7 +1503,7 @@ function adminMeetingDateHandler(socket, data, callback) {
                     callback({ status: 200, data: meetings });
                     return [3 /*break*/, 3];
                 case 2:
-                    err_14 = _a.sent();
+                    err_16 = _a.sent();
                     return [3 /*break*/, 3];
                 case 3: return [2 /*return*/];
             }
@@ -1418,7 +1512,7 @@ function adminMeetingDateHandler(socket, data, callback) {
 }
 function adminLeaveDateHandler(socket, data, callback) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, employees, err_15;
+        var user, employees, err_17;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -1434,8 +1528,8 @@ function adminLeaveDateHandler(socket, data, callback) {
                     callback({ status: 200, data: employees });
                     return [3 /*break*/, 3];
                 case 2:
-                    err_15 = _a.sent();
-                    console.log("error", err_15);
+                    err_17 = _a.sent();
+                    console.log("error", err_17);
                     return [3 /*break*/, 3];
                 case 3: return [2 /*return*/];
             }
@@ -1444,7 +1538,7 @@ function adminLeaveDateHandler(socket, data, callback) {
 }
 function adminAttendanceDateHandler(socket, data, callback) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, match, meetings, err_16;
+        var user, match, meetings, err_18;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -1489,8 +1583,8 @@ function adminAttendanceDateHandler(socket, data, callback) {
                     callback({ status: 200, data: meetings });
                     return [3 /*break*/, 3];
                 case 2:
-                    err_16 = _a.sent();
-                    console.log("error", err_16);
+                    err_18 = _a.sent();
+                    console.log("error", err_18);
                     return [3 /*break*/, 3];
                 case 3: return [2 /*return*/];
             }
@@ -1499,7 +1593,7 @@ function adminAttendanceDateHandler(socket, data, callback) {
 }
 function employeeDetailHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var employee, err_17;
+        var employee, err_19;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -1511,8 +1605,8 @@ function employeeDetailHandler(socket, data) {
                     socket.emit("admin-employee-detail-result", employee);
                     return [3 /*break*/, 3];
                 case 2:
-                    err_17 = _a.sent();
-                    console.log("error", err_17);
+                    err_19 = _a.sent();
+                    console.log("error", err_19);
                     return [3 /*break*/, 3];
                 case 3: return [2 /*return*/];
             }
@@ -1521,7 +1615,7 @@ function employeeDetailHandler(socket, data) {
 }
 function dashboardHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, allProjects, projects_1, invoice, invoiceObject_1, quotation, quotationObject_1, meetings, attendance, employees, err_18;
+        var user, allProjects, projects_1, invoice, invoiceObject_1, quotation, quotationObject_1, meetings, attendance, employees, err_20;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -1589,8 +1683,8 @@ function dashboardHandler(socket, data) {
                     });
                     return [3 /*break*/, 8];
                 case 7:
-                    err_18 = _a.sent();
-                    console.log("err", err_18);
+                    err_20 = _a.sent();
+                    console.log("err", err_20);
                     return [3 /*break*/, 8];
                 case 8: return [2 /*return*/];
             }
@@ -1599,7 +1693,7 @@ function dashboardHandler(socket, data) {
 }
 function startAttendanceHandler(socket, data, callback) {
     return __awaiter(this, void 0, void 0, function () {
-        var attendance, err_19;
+        var attendance, err_21;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -1637,8 +1731,8 @@ function startAttendanceHandler(socket, data, callback) {
                             message: "Attendance successfully started",
                         })];
                 case 3:
-                    err_19 = _a.sent();
-                    console.log(err_19);
+                    err_21 = _a.sent();
+                    console.log(err_21);
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -1648,7 +1742,7 @@ function startAttendanceHandler(socket, data, callback) {
 exports.startAttendanceHandler = startAttendanceHandler;
 function assignEmployeeMeeting(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, meeting, project, err_20;
+        var user, meeting, project, err_22;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -1676,7 +1770,7 @@ function assignEmployeeMeeting(socket, data) {
                     _a.sent();
                     return [3 /*break*/, 5];
                 case 4:
-                    err_20 = _a.sent();
+                    err_22 = _a.sent();
                     return [3 /*break*/, 5];
                 case 5: return [2 /*return*/];
             }
@@ -1686,7 +1780,7 @@ function assignEmployeeMeeting(socket, data) {
 exports.assignEmployeeMeeting = assignEmployeeMeeting;
 function employeeSrisudhaHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, employees, admins, data_1, err_21;
+        var user, employees, admins, data_1, err_23;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -1725,7 +1819,7 @@ function employeeSrisudhaHandler(socket, data) {
                     socket.emit("employee-srisudha-result", data_1);
                     return [3 /*break*/, 4];
                 case 3:
-                    err_21 = _a.sent();
+                    err_23 = _a.sent();
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -1735,7 +1829,7 @@ function employeeSrisudhaHandler(socket, data) {
 exports.employeeSrisudhaHandler = employeeSrisudhaHandler;
 function employeeStorageHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, uploads, shared, err_22;
+        var user, uploads, shared, err_24;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -1785,7 +1879,7 @@ function employeeStorageHandler(socket, data) {
                     socket.emit("admin-storage-result", { uploads: uploads, shared: shared });
                     return [3 /*break*/, 5];
                 case 4:
-                    err_22 = _a.sent();
+                    err_24 = _a.sent();
                     return [3 /*break*/, 5];
                 case 5: return [2 /*return*/];
             }
@@ -1795,7 +1889,7 @@ function employeeStorageHandler(socket, data) {
 exports.employeeStorageHandler = employeeStorageHandler;
 function storageProjectHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, projects, err_23;
+        var user, projects, err_25;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -1812,7 +1906,7 @@ function storageProjectHandler(socket, data) {
                     socket.emit("admin-storage-project-result", projects);
                     return [3 /*break*/, 4];
                 case 3:
-                    err_23 = _a.sent();
+                    err_25 = _a.sent();
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -1822,7 +1916,7 @@ function storageProjectHandler(socket, data) {
 exports.storageProjectHandler = storageProjectHandler;
 function addImportantHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, update, err_24;
+        var user, update, err_26;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -1837,7 +1931,7 @@ function addImportantHandler(socket, data) {
                     socket.user = update;
                     return [3 /*break*/, 4];
                 case 3:
-                    err_24 = _a.sent();
+                    err_26 = _a.sent();
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -1848,7 +1942,7 @@ exports.addImportantHandler = addImportantHandler;
 function removeImportantHandler(socket, data) {
     var _a;
     return __awaiter(this, void 0, void 0, function () {
-        var user, important, err_25;
+        var user, important, err_27;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
@@ -1865,7 +1959,7 @@ function removeImportantHandler(socket, data) {
                     _b.sent();
                     return [3 /*break*/, 4];
                 case 3:
-                    err_25 = _b.sent();
+                    err_27 = _b.sent();
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -1875,7 +1969,7 @@ function removeImportantHandler(socket, data) {
 exports.removeImportantHandler = removeImportantHandler;
 function storageImportantImageHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, data_2, err_26;
+        var user, data_2, err_28;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -1901,7 +1995,7 @@ function storageImportantImageHandler(socket, data) {
                     socket.emit("admin-storage-important-image-result", data_2 === null || data_2 === void 0 ? void 0 : data_2.importantFiles);
                     return [3 /*break*/, 4];
                 case 3:
-                    err_26 = _a.sent();
+                    err_28 = _a.sent();
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -1911,7 +2005,7 @@ function storageImportantImageHandler(socket, data) {
 exports.storageImportantImageHandler = storageImportantImageHandler;
 function storageProjectImageHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, projects, err_27;
+        var user, projects, err_29;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -1942,7 +2036,7 @@ function storageProjectImageHandler(socket, data) {
                     socket.emit("admin-storage-project-image-result", projects);
                     return [3 /*break*/, 4];
                 case 3:
-                    err_27 = _a.sent();
+                    err_29 = _a.sent();
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -1952,7 +2046,7 @@ function storageProjectImageHandler(socket, data) {
 exports.storageProjectImageHandler = storageProjectImageHandler;
 function imageDetailHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var user, favorite, images, err_28;
+        var user, favorite, images, err_30;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -1975,7 +2069,7 @@ function imageDetailHandler(socket, data) {
                     socket.emit("admin-image-detail-result", __assign(__assign({}, images[0]), { favorite: favorite ? true : false }));
                     return [3 /*break*/, 4];
                 case 3:
-                    err_28 = _a.sent();
+                    err_30 = _a.sent();
                     return [3 /*break*/, 4];
                 case 4: return [2 /*return*/];
             }
@@ -2002,7 +2096,7 @@ function updateProjectStatusHandler(project, data) {
 exports.updateProjectStatusHandler = updateProjectStatusHandler;
 function initialDataHandler(socket) {
     return __awaiter(this, void 0, void 0, function () {
-        var branches, templates, quotations, invoices, err_29;
+        var branches, templates, quotations, invoices, err_31;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -2120,7 +2214,7 @@ function initialDataHandler(socket) {
                     });
                     return [3 /*break*/, 6];
                 case 5:
-                    err_29 = _a.sent();
+                    err_31 = _a.sent();
                     return [3 /*break*/, 6];
                 case 6: return [2 /*return*/];
             }
@@ -2739,7 +2833,7 @@ function adminTaskHandler(socket, data) {
 }
 function employeeLeaveHandler(socket, data, callback) {
     return __awaiter(this, void 0, void 0, function () {
-        var employee, err_30;
+        var employee, err_32;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -2753,7 +2847,7 @@ function employeeLeaveHandler(socket, data, callback) {
                     callback({ status: 200, data: employee.sickLeave });
                     return [3 /*break*/, 3];
                 case 2:
-                    err_30 = _a.sent();
+                    err_32 = _a.sent();
                     //@ts-ignore
                     callback({ status: 400, message: error.message });
                     return [3 /*break*/, 3];
@@ -2764,7 +2858,7 @@ function employeeLeaveHandler(socket, data, callback) {
 }
 function employeeTaskLogHandler(socket, data, callback) {
     return __awaiter(this, void 0, void 0, function () {
-        var tasks, err_31;
+        var tasks, err_33;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -2814,7 +2908,7 @@ function employeeTaskLogHandler(socket, data, callback) {
                     callback({ status: 200, data: tasks });
                     return [3 /*break*/, 3];
                 case 2:
-                    err_31 = _a.sent();
+                    err_33 = _a.sent();
                     //@ts-ignore
                     callback({ status: 400, message: error.message });
                     return [3 /*break*/, 3];
@@ -2825,7 +2919,7 @@ function employeeTaskLogHandler(socket, data, callback) {
 }
 function adminTaskDetailHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var tasks, taskDetail, comments, err_32;
+        var tasks, taskDetail, comments, err_34;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -2861,8 +2955,8 @@ function adminTaskDetailHandler(socket, data) {
                 case 4: return [2 /*return*/];
                 case 5: return [3 /*break*/, 7];
                 case 6:
-                    err_32 = _a.sent();
-                    console.log("err", err_32);
+                    err_34 = _a.sent();
+                    console.log("err", err_34);
                     return [3 /*break*/, 7];
                 case 7: return [2 /*return*/];
             }

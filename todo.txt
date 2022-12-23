@@ -9,7 +9,7 @@ sudo cat /var/log/messages
 
 DB_URI="mongodb+srv://manish86:manish86@cluster0.cal8e.mongodb.net/srisudha?retryWrites=true&w=majority"
 PORT=4000
-CALLBACK_URL = "http://13.233.54.181/customer/callback"
+CALLBACK_URL = "https://13.233.54.181/customer/callback"
 APP_ID="TEST250746f79be4d2a73088f098e5647052"
 SECRET_KEY="TEST836f0b5dbb842f526ca6b93c4266d3d1bf93c5ec"
 JWT_SECRET="awesomeDashboard"
@@ -23,7 +23,7 @@ AGORA_CERTIFICATE="536c06d60bd94e49b4e0ab830b7b9b7f"
 MERCHANT_ID="BzZQWs26115545734507"
 MERCHANT_KEY="QT1qhQWdwsqj4@ZZ"
 MERCHANT_WEBSITE="WEBSTAGING"
-WEB_URL="http://localhost:4050"
+WEB_URL="https://client.srisudhaconsultancy.com"
 TXN_URL = "https://securegw-stage.paytm.in/order/process"
 
 

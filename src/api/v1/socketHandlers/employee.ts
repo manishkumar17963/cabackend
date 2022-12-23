@@ -147,6 +147,60 @@ export function employeeSocketHandler(socket: Socket) {
     socket.on("employee-date-meeting", async (data, callback) => {
       await employeeMeetingDateHandler(socket, data, callback);
     });
+
+    socket.on("employee-complete-meeting", async (data, callback) => {
+      await completeMeetingHandler(socket, data, callback);
+    });
+
+    socket.on("employee-cancel-meeting", async (data, callback) => {
+      await cancelMeetingHandler(socket, data, callback);
+    });
+  }
+}
+
+export async function cancelMeetingHandler(
+  socket: Socket,
+  data: { meetingId: string },
+  callback: (data: any) => void
+) {
+  try {
+    const meeting = await findMeeting({ _id: data.meetingId });
+    if (!meeting) {
+      throw new CustomError("Bad Request", 404, "No such meeting found");
+    } else {
+      if (meeting.meetingStatus == MeetingStatus.Completed) {
+        throw new CustomError("Bad Request", 404, "Meeting Already completed");
+      } else {
+        meeting.meetingStatus = MeetingStatus.Declined;
+        await meeting.save();
+      }
+    }
+    callback({ status: 200, message: "Meeting successfully cancelled" });
+  } catch (err: any) {
+    callback({ status: 400, message: err?.message });
+  }
+}
+
+export async function completeMeetingHandler(
+  socket: Socket,
+  data: { meetingId: string },
+  callback: (data: any) => void
+) {
+  try {
+    const meeting = await findMeeting({ _id: data.meetingId });
+    if (!meeting) {
+      throw new CustomError("Bad Request", 404, "No such meeting found");
+    } else {
+      if (meeting.meetingStatus == MeetingStatus.Declined) {
+        throw new CustomError("Bad Request", 404, "Meeting Already Declined");
+      } else {
+        meeting.meetingStatus = MeetingStatus.Completed;
+        await meeting.save();
+      }
+    }
+    callback({ status: 200, message: "Meeting successfully Completed" });
+  } catch (err: any) {
+    callback({ status: 400, message: err?.message });
   }
 }
 
@@ -753,6 +807,14 @@ export async function assignEmployeeMeeting(
       await meeting.save();
     }
   } catch (err) {}
+}
+
+export async function completedLeaveHandler(
+  socket: Socket,
+  data: { sickLeaveId: string },
+  callback: (data: any) => void
+) {
+  const employee = await findEmployee({});
 }
 
 export async function sickLeaveHandler(socket: Socket, data: any) {
