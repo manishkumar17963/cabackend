@@ -34,43 +34,50 @@ export interface InvoiceDocument extends mongoose.Document, InvoiceInput {
   transactionId?: string;
 }
 
-const InvoiceSchema = new mongoose.Schema({
-  createdBy: { type: String, required: true, ref: "Admin" },
-  projectId: { type: mongoose.Types.ObjectId, required: true, ref: "Project" },
-  gstNumber: { type: String, required: true },
-  projectName: { type: String, required: true },
-  paymentMethod: { enum: convertEnumToArray(PaymentMethod), type: String },
-  transactionId: String,
-  expectedPaymentDate: Date,
-  customerId: {
-    type: mongoose.Types.ObjectId,
-    required: true,
-    ref: "Customer",
-  },
-  sameCity: { type: Boolean, required: true },
-  taxPercentage: { type: Number, required: true },
-  tds: { type: Number },
-  cgst: { type: Number, required: true },
-  sgst: { type: Number, required: true },
-  actualPaymentDate: Date,
-  amount: { type: Number, required: true },
-  paymentStatus: {
-    enum: convertEnumToArray(PaymentStatus),
-    type: String,
-    default: PaymentStatus.Unpaid,
-  },
-  branchId: {
-    type: String,
-    required: true,
-    ref: "Branch",
-  },
+const InvoiceSchema = new mongoose.Schema(
+  {
+    createdBy: { type: String, required: true, ref: "Admin" },
+    projectId: {
+      type: mongoose.Types.ObjectId,
+      required: true,
+      ref: "Project",
+    },
+    gstNumber: { type: String, required: true },
+    projectName: { type: String, required: true },
+    paymentMethod: { enum: convertEnumToArray(PaymentMethod), type: String },
+    transactionId: String,
+    expectedPaymentDate: Date,
+    customerId: {
+      type: mongoose.Types.ObjectId,
+      required: true,
+      ref: "Customer",
+    },
+    sameCity: { type: Boolean, required: true },
+    taxPercentage: { type: Number, required: true },
+    tds: { type: Number },
+    cgst: { type: Number, required: true },
+    sgst: { type: Number, required: true },
+    actualPaymentDate: Date,
+    amount: { type: Number, required: true },
+    paymentStatus: {
+      enum: convertEnumToArray(PaymentStatus),
+      type: String,
+      default: PaymentStatus.Unpaid,
+    },
+    branchId: {
+      type: String,
+      required: true,
+      ref: "Branch",
+    },
 
-  invoiceNo: { type: String, required: true },
+    invoiceNo: { type: String, required: true },
 
-  notes: [String],
+    notes: [String],
 
-  services: [ServiceSchema],
-});
+    services: [ServiceSchema],
+  },
+  { timestamps: true }
+);
 
 const Invoice = mongoose.model<InvoiceDocument>("Invoice", InvoiceSchema);
 export default Invoice;
