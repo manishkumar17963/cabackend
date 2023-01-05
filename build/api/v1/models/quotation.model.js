@@ -17,7 +17,11 @@ var QuotationSchema = new mongoose_1.default.Schema({
     },
     gstNumber: { type: String, required: true },
     createdBy: { type: String, required: true, ref: "Admin" },
-    projectId: { type: mongoose_1.default.Types.ObjectId, required: true, ref: "Project" },
+    projectId: {
+        type: mongoose_1.default.Types.ObjectId,
+        required: true,
+        ref: "Project",
+    },
     templateId: {
         type: String,
         required: true,
@@ -53,6 +57,6 @@ var QuotationSchema = new mongoose_1.default.Schema({
     approved: { type: Boolean, default: false },
     version: { type: Number, default: 0 },
     services: [common_1.ServiceSchema],
-});
+}, { timestamps: true });
 var Quotation = mongoose_1.default.model("Quotation", QuotationSchema);
 exports.default = Quotation;

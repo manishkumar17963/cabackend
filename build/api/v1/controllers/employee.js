@@ -88,6 +88,8 @@ var role_1 = __importDefault(require("../enums/role"));
 var admin_1 = require("../socketHandlers/admin");
 var paymentStatus_1 = __importDefault(require("../enums/paymentStatus"));
 var customer_1 = require("../services/customer");
+var taskType_1 = __importDefault(require("../enums/taskType"));
+var selfTask_service_1 = require("../services/selfTask.service");
 function createEmployeeHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
         var session, code, phone, employee, count, err_1;
@@ -834,11 +836,11 @@ function removeHolidayRequestHandler(req, res) {
 exports.removeHolidayRequestHandler = removeHolidayRequestHandler;
 function addCommentHandler(req, res) {
     return __awaiter(this, void 0, void 0, function () {
-        var _a, taskId, commentId, comment, user, oldComment, task, project, newComment, error_11;
+        var _a, taskId, commentId, comment, user, oldComment, func, task, project, newComment, error_11;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
-                    _b.trys.push([0, 11, , 12]);
+                    _b.trys.push([0, 12, , 13]);
                     _a = req.body, taskId = _a.taskId, commentId = _a.commentId, comment = _a.comment;
                     user = req.user;
                     oldComment = null;
@@ -854,26 +856,35 @@ function addCommentHandler(req, res) {
                     else {
                     }
                     _b.label = 2;
-                case 2: return [4 /*yield*/, task_1.findTask({
-                        _id: taskId,
-                    }, { comments: 1, assignedEmployee: 1 })];
+                case 2:
+                    func = task_1.findTask;
+                    console.log("boidy", req.body);
+                    if (req.body.type == taskType_1.default.Personal) {
+                        //@ts-ignore
+                        func = selfTask_service_1.findSelfTask;
+                    }
+                    return [4 /*yield*/, func({
+                            _id: taskId,
+                        }, { comments: 1, assignedEmployee: 1 })];
                 case 3:
                     task = _b.sent();
                     if (!task) {
                         throw new customError_1.default("Bad Request", 404, "No such task found");
                     }
-                    if (!(task.assignedEmployee != user._id)) return [3 /*break*/, 5];
-                    return [4 /*yield*/, project_Service_1.findProject({
-                            _id: task.projectId,
-                            primaryEmployee: user._id,
-                        })];
-                case 4:
+                    if (!(task.assignedEmployee != user._id)) return [3 /*break*/, 6];
+                    if (!(req.body.type == taskType_1.default.Personal)) return [3 /*break*/, 4];
+                    throw new customError_1.default("Bad Request", 400, "No such task found");
+                case 4: return [4 /*yield*/, project_Service_1.findProject({
+                        _id: task.projectId,
+                        primaryEmployee: user._id,
+                    })];
+                case 5:
                     project = _b.sent();
                     if (!project) {
                         throw new customError_1.default("Bad Request", 400, "You are not part of this project");
                     }
-                    _b.label = 5;
-                case 5: return [4 /*yield*/, comment_1.createComment({
+                    _b.label = 6;
+                case 6: return [4 /*yield*/, comment_1.createComment({
                         senderId: user._id,
                         sendBy: sendBy_1.default.Employee,
                         parent: commentId ? false : true,
@@ -883,28 +894,28 @@ function addCommentHandler(req, res) {
                         senderProfile: user.profileUri,
                         senderName: user.username,
                     })];
-                case 6:
+                case 7:
                     newComment = _b.sent();
-                    if (!oldComment) return [3 /*break*/, 8];
+                    if (!oldComment) return [3 /*break*/, 9];
                     oldComment.threads.push(newComment._id);
                     return [4 /*yield*/, oldComment.save()];
-                case 7:
-                    _b.sent();
-                    return [3 /*break*/, 10];
                 case 8:
+                    _b.sent();
+                    return [3 /*break*/, 11];
+                case 9:
                     task.comments.push(newComment._id);
                     return [4 /*yield*/, task.save()];
-                case 9:
-                    _b.sent();
-                    _b.label = 10;
                 case 10:
-                    res.send(newComment);
-                    return [3 /*break*/, 12];
+                    _b.sent();
+                    _b.label = 11;
                 case 11:
+                    res.send(newComment);
+                    return [3 /*break*/, 13];
+                case 12:
                     error_11 = _b.sent();
                     checkErrors_1.default(error_11, res);
-                    return [3 /*break*/, 12];
-                case 12: return [2 /*return*/];
+                    return [3 /*break*/, 13];
+                case 13: return [2 /*return*/];
             }
         });
     });

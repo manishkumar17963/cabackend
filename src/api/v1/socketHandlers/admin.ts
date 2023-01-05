@@ -79,6 +79,14 @@ import { aggregateTemplate } from "../services/template.service";
 import MeetingType from "../enums/meetingType";
 import ReportView from "../enums/projectReport";
 import MeetingStatus from "../enums/meetingStatus";
+import { LinkOwned } from "../models/link.model";
+import {
+  createLink,
+  findAllLink,
+  findAndDeleteLink,
+  findAndUpdateLink,
+  findLink,
+} from "../services/link.service";
 
 export function adminSocketHandler(socket: Socket) {
   //@ts-ignore
@@ -222,6 +230,23 @@ export function adminSocketHandler(socket: Socket) {
     socket.on("admin-date-leave", async (data, callback) => {
       await adminLeaveDateHandler(socket, data, callback);
     });
+
+    socket.on("admin-add-link", async (data, callback) => {
+      await adminAddLink(socket, data, callback);
+    });
+
+    socket.on("admin-toggle-link", async (data, callback) => {
+      await adminToggleLink(socket, data, callback);
+    });
+
+    socket.on("admin-delete-link", async (data, callback) => {
+      await adminDeleteLink(socket, data, callback);
+    });
+
+    socket.on("admin-update-link", async (data, callback) => {
+      await adminAddParticipants(socket, data, callback);
+    });
+
     socket.on("admin-date-attendance", async (data, callback) => {
       await adminAttendanceDateHandler(socket, data, callback);
     });
@@ -250,6 +275,106 @@ export function adminSocketHandler(socket: Socket) {
     socket.on("admin-cancel-meeting", async (data, callback) => {
       await cancelMeetingHandler(socket, data, callback);
     });
+  }
+}
+
+export async function adminAddLink(
+  socket: Socket,
+  data: { name: string; url: string; type: LinkOwned; sharedTo: string[] },
+  callback: (data: any) => void
+) {
+  try {
+    //@ts-ignore
+    const user = socket.user as AdminDocument;
+    const link = await createLink({
+      ...data,
+      ownerId: user._id,
+      ownerType: SendBy.Admin,
+      hide: false,
+    });
+    // console.log("timeLogs", timeLogs);
+    callback({ status: 200, data: link });
+  } catch (err) {
+    console.log(err);
+  }
+}
+
+export async function adminToggleLink(
+  socket: Socket,
+  data: { linkId: mongoose.Types.ObjectId },
+  callback: (data: any) => void
+) {
+  try {
+    //@ts-ignore
+    const user = socket.user as AdminDocument;
+    const link = await findLink({ ownerId: user._id, _id: data.linkId });
+    if (!link) {
+      throw new CustomError("Bad request", 404, "No such Link found");
+    }
+    // console.log("timeLogs", timeLogs);
+    link.hide = !link.hide;
+    await link.save();
+    callback({
+      status: 200,
+      data: `link successfully ${link.hide ? "hidden" : "showed"}`,
+    });
+  } catch (err: any) {
+    callback({ status: 400, message: err?.message });
+  }
+}
+
+export async function adminDeleteLink(
+  socket: Socket,
+  data: { linkId: mongoose.Types.ObjectId },
+  callback: (data: any) => void
+) {
+  try {
+    //@ts-ignore
+    const user = socket.user as AdminDocument;
+    const link = await findAndDeleteLink({
+      ownerId: user._id,
+      _id: data.linkId,
+    });
+    if (!link) {
+      throw new CustomError("Bad request", 404, "No such Link found");
+    }
+
+    callback({
+      status: 200,
+      data: `link successfully deleted`,
+    });
+  } catch (err: any) {
+    callback({ status: 400, message: err?.message });
+  }
+}
+
+export async function adminAddParticipants(
+  socket: Socket,
+  data: { linkId: mongoose.Types.ObjectId; participants: string[] },
+  callback: (data: any) => void
+) {
+  try {
+    //@ts-ignore
+    const user = socket.user as AdminDocument;
+    const link = await findAndUpdateLink(
+      {
+        ownerId: user._id,
+        _id: data.linkId,
+        type: LinkOwned.Personal,
+      },
+      { $set: { sharedTo: data.participants } },
+      {}
+    );
+    if (!link) {
+      throw new CustomError("Bad request", 404, "No such Link found");
+    }
+
+    callback({
+      status: 200,
+      data: "Participants successfully updated",
+    });
+  } catch (err: any) {
+    callback({ status: 400, message: err?.message });
   }
 }
 
@@ -1184,6 +1309,9 @@ async function dashboardHandler(socket: Socket, data: any) {
   try {
     //@ts-ignore
     const user = socket.user as CustomerDocument;
+    const links = await findAllLink({
+      $or: [{ ownerId: user._id }],
+    });
     const allProjects = await aggregateProject([
       { $group: { _id: "$status", count: { $count: {} } } },
     ]);
@@ -1234,7 +1362,7 @@ async function dashboardHandler(socket: Socket, data: any) {
     socket.emit("admin-dashboard-result", {
       meetings,
       employees,
-
+      links,
       attendance,
       quotation: quotationObject,
 

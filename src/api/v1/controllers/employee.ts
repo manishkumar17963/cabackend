@@ -59,6 +59,8 @@ import PaymentStatus from "../enums/paymentStatus";
 import { findCustomer } from "../services/customer";
 import MeetingType from "../enums/meetingType";
 import { Participant } from "../models/conversation.model";
+import TaskType from "../enums/taskType";
+import { findSelfTask } from "../services/selfTask.service";
 
 export async function createEmployeeHandler(req: Request, res: Response) {
   var session: ClientSession = await mongoose.startSession();
@@ -706,7 +708,13 @@ export async function addCommentHandler(req: Request, res: Response) {
       } else {
       }
     }
-    const task = await findTask(
+    let func = findTask;
+    console.log("boidy", req.body);
+    if (req.body.type == TaskType.Personal) {
+      //@ts-ignore
+      func = findSelfTask;
+    }
+    const task = await func(
       {
         _id: taskId,
       },
@@ -717,16 +725,20 @@ export async function addCommentHandler(req: Request, res: Response) {
     }
 
     if (task.assignedEmployee != user._id) {
-      const project = await findProject({
-        _id: task.projectId,
-        primaryEmployee: user._id,
-      });
-      if (!project) {
-        throw new CustomError(
-          "Bad Request",
-          400,
-          "You are not part of this project"
-        );
+      if (req.body.type == TaskType.Personal) {
+        throw new CustomError("Bad Request", 400, "No such task found");
+      } else {
+        const project = await findProject({
+          _id: task.projectId,
+          primaryEmployee: user._id,
+        });
+        if (!project) {
+          throw new CustomError(
+            "Bad Request",
+            400,
+            "You are not part of this project"
+          );
+        }
       }
     }
 

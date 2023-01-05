@@ -9,7 +9,9 @@ import AttendanceType from "../enums/attendanceType";
 import ConversationType from "../enums/conversationType";
 import HolidayStatus from "../enums/holidayStatus";
 import MeetingStatus from "../enums/meetingStatus";
+import ProjectStatus from "../enums/taskStatus";
 import MeetingType from "../enums/meetingType";
+import Priority from "../enums/priority";
 import SendBy from "../enums/sendBy";
 import TaskStatus from "../enums/taskStatus";
 import WorkFrom from "../enums/workFrom";
@@ -20,9 +22,10 @@ import PointLocation from "../interfaces/pointLocation";
 import Attendance from "../models/attendance";
 import Comment from "../models/comment";
 import Employee, { EmployeeDocument } from "../models/employee";
+import Link, { LinkInput, LinkOwned } from "../models/link.model";
 import Meeting from "../models/meeting";
 import Message from "../models/message.model";
-import Task from "../models/task.model";
+import Task, { TaskDocument } from "../models/task.model";
 import { aggregateAdmin } from "../services/admin";
 import { findAttendance } from "../services/attendance";
 import { aggregateBranch } from "../services/branch.service";
@@ -38,14 +41,30 @@ import {
 } from "../services/employee";
 import { aggregateHoliday } from "../services/holiday";
 import {
+  createLink,
+  findAllLink,
+  findAndDeleteLink,
+  findAndUpdateLink,
+  findLink,
+} from "../services/link.service";
+import {
   aggregateMeeting,
   findAndUpdateMeeting,
   findMeeting,
 } from "../services/meeting";
 import { aggregateMessage } from "../services/message.Service";
 import { aggregateProject, findProject } from "../services/project.Service";
+import {
+  aggregateSelfTask,
+  createSelfTask,
+  deleteSelfTask,
+  findAndUpdateSelfTask,
+  findSelfTask,
+} from "../services/selfTask.service";
 import { aggregateTask, findTask } from "../services/task";
 import { aggregateTemplate } from "../services/template.service";
+import SelfTask, { SelfTaskDocument } from "../models/selfTask";
+import TaskType from "../enums/taskType";
 
 export function employeeSocketHandler(socket: Socket) {
   //@ts-ignore
@@ -55,6 +74,18 @@ export function employeeSocketHandler(socket: Socket) {
     });
     socket.on("employee-project", async (data) => {
       await employeeProjectHandler(socket, data);
+    });
+
+    socket.on("create-task", async (data, callback) => {
+      await addTaskHandler(socket, data, callback);
+    });
+
+    socket.on("update-task-status", async (data, callback) => {
+      await updateTaskStatusHandler(socket, data, callback);
+    });
+
+    socket.on("all-tasks", async (data, callback) => {
+      await employeeAllTaskHandler(socket, data, callback);
     });
 
     socket.on("time-log", async (data, callback) => {
@@ -155,6 +186,336 @@ export function employeeSocketHandler(socket: Socket) {
     socket.on("employee-cancel-meeting", async (data, callback) => {
       await cancelMeetingHandler(socket, data, callback);
     });
+
+    socket.on("employee-add-link", async (data, callback) => {
+      await employeeAddLink(socket, data, callback);
+    });
+
+    socket.on("employee-toggle-link", async (data, callback) => {
+      await employeeToggleLink(socket, data, callback);
+    });
+
+    socket.on("employee-delete-link", async (data, callback) => {
+      await employeeDeleteLink(socket, data, callback);
+    });
+
+    socket.on("employee-update-link", async (data, callback) => {
+      await updateLinkHandler(socket, data, callback);
+    });
+  }
+}
+
+export async function addTaskHandler(
+  socket: Socket,
+  data: {
+    name: string;
+    description?: string;
+    startDate?: Date;
+    expectedEndDate?: Date;
+  },
+  callback: (data: any) => void
+) {
+  try {
+    console.log("data", data);
+    //@ts-ignore
+    const user = socket.user as EmployeeDocument;
+    const task = await createSelfTask({
+      name: data.name,
+      expectedEndDate:
+        data.expectedEndDate != null && data.expectedEndDate
+          ? data.expectedEndDate
+          : undefined,
+      startDate: data.startDate,
+      priority: Priority.Default,
+      assignedEmployee: user._id,
+      timeLog: [],
+      userType: SendBy.Employee,
+      status: TaskStatus.Initiated,
+    });
+    callback({ status: 200, data: task });
+  } catch (err: any) {
+    console.log("error", err);
+    callback({ status: 400, message: err?.message });
+  }
+}
+
+async function employeeAllTaskHandler(
+  socket: Socket,
+  data: {
+    taskId: mongoose.Types.ObjectId;
+    key: string;
+    value: string;
+  },
+  callback: (data: any) => void
+) {
+  try {
+    //@ts-ignore
+    const user = socket.user as EmployeeDocument;
+    const tasks1 = await aggregateTask([
+      {
+        $match: {
+          assignedEmployee: user._id,
+          status: { $ne: ProjectStatus.Declined },
+        },
+      },
+      {
+        $project: {
+          name: 1,
+          description: 1,
+          expectedEndDate: 1,
+          status: 1,
+          priority: 1,
+          projectId: 1,
+          createdAt: 1,
+        },
+      },
+      { $group: { _id: "$status", items: { $push: "$$ROOT" } } },
+    ]);
+
+    const tasks2 = await aggregateSelfTask([
+      {
+        $match: {
+          assignedEmployee: user._id,
+          status: { $ne: ProjectStatus.Declined },
+        },
+      },
+      {
+        $project: {
+          name: 1,
+          description: 1,
+          expectedEndDate: 1,
+          status: 1,
+          priority: 1,
+          startDate: 1,
+        },
+      },
+      { $group: { _id: "$status", items: { $push: "$$ROOT" } } },
+    ]);
+    const data: {
+      [key: string]: { title: string; expanded: boolean; items: any[] };
+    } = {};
+    const handlerFunction = (value: { _id: ProjectStatus; items: any[] }) => {
+      if (data[value._id]) {
+        data[value._id].items.push(...value.items);
+      } else {
+        data[value._id] = {
+          title: value._id,
+          expanded: true,
+          items: value.items,
+        };
+      }
+    };
+    tasks1.forEach(handlerFunction);
+    tasks2.forEach(handlerFunction);
+    callback({
+      status: 200,
+      data: {
+        completed: data.completed,
+        ongoing: data.ongoing,
+        initiated: data.initiated,
+      },
+    });
+  } catch (err) {}
+}
+
+export async function updateTaskStatusHandler(
+  socket: Socket,
+  data: {
+    taskId: mongoose.Types.ObjectId;
+    status: ProjectStatus;
+    type: string;
+  },
+  callback: (data: any) => void
+) {
+  try {
+    console.log("data", data);
+    //@ts-ignore
+    const user = socket.user as EmployeeDocument;
+    let task: TaskDocument | SelfTaskDocument | null;
+    if (data.type == "project") {
+      task = await findTask({ _id: data.taskId, assignedEmployee: user._id });
+    } else {
+      task = await findSelfTask({
+        _id: data.taskId,
+        assignedEmployee: user._id,
+      });
+    }
+
+    if (!task) {
+      throw new CustomError("Bad Request", 404, "No such task found");
+    }
+    task.status = data.status;
+    if (data.status == ProjectStatus.Completed) {
+      const timeLog = task.timeLog[0];
+      if (timeLog && !timeLog.endTime) {
+        task.timeLog[0].endTime = moment().toDate();
+      }
+    }
+    await task.save();
+    callback({ status: 200, data: task });
+  } catch (err: any) {
+    console.log("error", err);
+    callback({ status: 400, message: err?.message });
+  }
+}
+
+export async function updateTaskHandler(
+  socket: Socket,
+  data: {
+    taskId: mongoose.Types.ObjectId;
+    key: string;
+    value: string;
+  },
+  callback: (data: any) => void
+) {
+  try {
+    //@ts-ignore
+    const user = socket.user as EmployeeDocument;
+    const task = await findAndUpdateSelfTask(
+      { _id: data.taskId },
+      { $set: { [data.key]: data.value } },
+      {}
+    );
+    if (!task) {
+      throw new CustomError("Bad Request", 404, "No such task found");
+    }
+    callback({ status: 200, data: task });
+  } catch (err: any) {
+    callback({ status: 400, message: err?.message });
+  }
+}
+
+export async function deleteTaskHandler(
+  socket: Socket,
+  data: {
+    taskId: mongoose.Types.ObjectId;
+  },
+  callback: (data: any) => void
+) {
+  try {
+    //@ts-ignore
+    const user = socket.user as EmployeeDocument;
+    const task = await deleteSelfTask({
+      _id: data.taskId,
+      assignedEmployee: user._id,
+    });
+    if (!task || !task.acknowledged) {
+      throw new CustomError("Bad Request", 404, "Task can't be deleted");
+    }
+    callback({ status: 200, data: task });
+  } catch (err: any) {
+    callback({ status: 400, message: err?.message });
+  }
+}
+
+export async function employeeAddLink(
+  socket: Socket,
+  data: { name: string; url: string; sharedTo: string[] },
+  callback: (data: any) => void
+) {
+  try {
+    //@ts-ignore
+    const user = socket.user as EmployeeDocument;
+    const link = await createLink({
+      ...data,
+      type: LinkOwned.Personal,
+      ownerId: user._id,
+      ownerType: SendBy.Employee,
+      hide: false,
+    });
+    // console.log("timeLogs", timeLogs);
+    callback({ status: 200, data: link });
+  } catch (err: any) {
+    callback({ status: 500, message: err.message });
+  }
+}
+
+export async function employeeToggleLink(
+  socket: Socket,
+  data: { linkId: mongoose.Types.ObjectId },
+  callback: (data: any) => void
+) {
+  try {
+    //@ts-ignore
+    const user = socket.user as AdminDocument;
+    const link = await findLink({ ownerId: user._id, _id: data.linkId });
+    if (!link) {
+      throw new CustomError("Bad request", 404, "No such Link found");
+    }
+    // console.log("timeLogs", timeLogs);
+    link.hide = !link.hide;
+    await link.save();
+    callback({
+      status: 200,
+      data: `link successfully ${link.hide ? "hidden" : "showed"}`,
+    });
+  } catch (err: any) {
+    callback({ status: 400, message: err?.message });
+  }
+}
+
+export async function employeeDeleteLink(
+  socket: Socket,
+  data: { linkId: mongoose.Types.ObjectId },
+  callback: (data: any) => void
+) {
+  try {
+    //@ts-ignore
+    const user = socket.user as AdminDocument;
+    const link = await findLink({
+      _id: data.linkId,
+    });
+    if (!link) {
+      throw new CustomError("Bad request", 404, "No such Link found");
+    }
+    if (link.ownerId == user._id) {
+      await link.delete();
+    } else {
+      link.sharedTo = link.sharedTo.filter((value) => value != user._id);
+      await link.save();
+    }
+
+    callback({
+      status: 200,
+      data: `link successfully deleted`,
+    });
+  } catch (err: any) {
+    callback({ status: 400, message: err?.message });
+  }
+}
+
+export async function updateLinkHandler(
+  socket: Socket,
+  data: {
+    linkId: mongoose.Types.ObjectId;
+    url: string;
+    sharedTo: string[];
+    name: string;
+  },
+  callback: (data: any) => void
+) {
+  try {
+    //@ts-ignore
+    const user = socket.user as AdminDocument;
+    const link = await findAndUpdateLink(
+      {
+        ownerId: user._id,
+        _id: data.linkId,
+        type: LinkOwned.Personal,
+      },
+      { $set: { name: data.name, url: data.url, sharedTo: data.sharedTo } },
+      { new: true }
+    );
+    if (!link) {
+      throw new CustomError("Bad request", 404, "No such Link found");
+    }
+
+    callback({
+      status: 200,
+      data: link,
+    });
+  } catch (err: any) {
+    callback({ status: 400, message: err?.message });
   }
 }
 
@@ -206,11 +567,13 @@ export async function completeMeetingHandler(
 
 async function employeeTaskLogHandler(
   socket: Socket,
-  data: { taskId: string },
+  data: { taskId: string; type?: TaskType },
   callback: (data: any) => void
 ) {
   try {
-    const tasks = await aggregateTask([
+    const func =
+      data.type == TaskType.Personal ? aggregateSelfTask : aggregateTask;
+    const tasks = await func([
       {
         $match: {
           _id: new mongoose.Types.ObjectId(data.taskId),
@@ -259,13 +622,19 @@ async function employeeTaskLogHandler(
 
 async function taskActionHandler(
   socket: Socket,
-  data: { taskId: string; workFrom: WorkFrom; location?: Location },
+  data: {
+    taskId: string;
+    workFrom: WorkFrom;
+    location?: Location;
+    type?: TaskType;
+  },
   callback: (data: any) => void
 ) {
   try {
     //@ts-ignore
     const user = socket.user as EmployeeDocument;
-    const tasks = await findTask({
+    const func = data.type == TaskType.Personal ? findSelfTask : findTask;
+    const tasks = await func({
       assignedEmployee: user._id,
       _id: data.taskId,
     });
@@ -440,9 +809,18 @@ async function dashboardHandler(socket: Socket, data: any) {
 
     monthly.attendance = monthlyAttendance;
 
+    const links = await Link.find({
+      $or: [
+        { ownerId: user._id },
+        { type: LinkOwned.All, hide: false },
+        { sharedTo: user._id, hide: false },
+      ],
+    }).sort({ createdAt: -1 });
+
     socket.emit("employee-dashboard-result", {
       meetings,
       holiday: holiday,
+      links,
       monthly: monthly,
       customers,
       attendance: value,
@@ -1054,21 +1432,24 @@ export async function imageDetailHandler(
 
 async function employeeTaskDetailHandler(
   socket: Socket,
-  data: { taskId: string }
+  data: { taskId: string; type: string }
 ) {
   let tasks: any[] = [];
   try {
     if (mongoose.isValidObjectId(data.taskId)) {
-      const taskDetail = await Task.findOne({ _id: data.taskId }).populate(
-        "assignedEmployee",
-        {
+      let model: mongoose.Model<any> = Task;
+      if (data.type == "personal") {
+        model = SelfTask;
+      }
+      const taskDetail = await model
+        .findOne({ _id: data.taskId })
+        .populate("assignedEmployee", {
           username: 1,
           number: 1,
           email: 1,
           _id: 1,
           profileUri: 1,
-        }
-      );
+        });
       // .populate({
       //   path: "previousEmployee",
       //   populate: { path: "id", model: "Employee" },
