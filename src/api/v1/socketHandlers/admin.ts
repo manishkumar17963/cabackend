@@ -1314,7 +1314,7 @@ async function dashboardHandler(socket: Socket, data: any) {
     //@ts-ignore
     const user = socket.user as CustomerDocument;
     const links = await findAllLink({
-      $or: [{ ownerId: user._id }],
+      $or: [{ ownerId: user._id }, { type: LinkOwned.All }],
     });
     const allProjects = await aggregateProject([
       { $group: { _id: "$status", count: { $count: {} } } },

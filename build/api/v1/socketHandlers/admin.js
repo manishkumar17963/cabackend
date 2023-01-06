@@ -1786,7 +1786,7 @@ function dashboardHandler(socket, data) {
                     _a.trys.push([0, 8, , 9]);
                     user = socket.user;
                     return [4 /*yield*/, link_service_1.findAllLink({
-                            $or: [{ ownerId: user._id }],
+                            $or: [{ ownerId: user._id }, { type: link_model_1.LinkOwned.All }],
                         })];
                 case 1:
                     links = _a.sent();
