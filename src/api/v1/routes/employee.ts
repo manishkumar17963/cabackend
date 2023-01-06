@@ -8,6 +8,7 @@ import {
   completeProjectHandler,
   completeTaskHandler,
   createEmployeeHandler,
+  createProjectForCustomerHandler,
   createTaskCustomerHandler,
   declinedProjectHandler,
   declinedTaskHandler,
@@ -29,6 +30,7 @@ import Employee from "../models/employee";
 import {
   addCommentSchema,
   assignTaskToEmployeeSchema,
+  createProjectSchema,
   createTaskSchema,
   requestMeetingSchema,
   updateProjectSchema,
@@ -80,7 +82,11 @@ EmployeeRouter.post(
   [validate(requestMeetingSchema), authRequired(Employee)],
   requestMeetingHandler
 );
-
+EmployeeRouter.post(
+  "/create/project",
+  [validate(createProjectSchema), authRequired(Employee)],
+  createProjectForCustomerHandler
+);
 EmployeeRouter.post(
   "/add/other/meeting",
   [authRequired(Employee)],

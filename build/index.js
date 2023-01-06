@@ -68,7 +68,6 @@ var http = __importStar(require("http"));
 var admin_1 = __importDefault(require("./api/v1/routes/admin"));
 var customer_1 = __importDefault(require("./api/v1/routes/customer"));
 var employee_1 = __importDefault(require("./api/v1/routes/employee"));
-var https_1 = __importDefault(require("https"));
 var url_1 = __importDefault(require("./api/v1/routes/url"));
 var path_1 = __importDefault(require("path"));
 var port = parseInt(process.env.PORT);
@@ -80,7 +79,7 @@ var cred = {
     cert: cert,
 };
 var start = function () { return __awaiter(void 0, void 0, void 0, function () {
-    var app, server, httpServer, err_1;
+    var app, server, err_1;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -110,9 +109,6 @@ var start = function () { return __awaiter(void 0, void 0, void 0, function () {
                 server = http.createServer(app);
                 server_1.default(server);
                 server.listen(port, "0.0.0.0");
-                httpServer = https_1.default.createServer(cred, app);
-                httpServer.listen(8443);
-                server_1.default(httpServer);
                 return [3 /*break*/, 3];
             case 2:
                 err_1 = _a.sent();

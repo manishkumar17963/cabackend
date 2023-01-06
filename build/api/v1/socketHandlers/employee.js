@@ -253,7 +253,7 @@ function employeeSocketHandler(socket) {
         socket.on("employee-search-customer", function (data) { return __awaiter(_this, void 0, void 0, function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
-                    case 0: return [4 /*yield*/, searchCustomerHandler(socket)];
+                    case 0: return [4 /*yield*/, searchCustomerHandler(socket, data)];
                     case 1:
                         _a.sent();
                         return [2 /*return*/];
@@ -508,6 +508,7 @@ function employeeAllTaskHandler(socket, data, callback) {
                                     status: { $ne: taskStatus_1.default.Declined },
                                 },
                             },
+                            { $sort: { createdAt: -1 } },
                             {
                                 $project: {
                                     name: 1,
@@ -530,6 +531,7 @@ function employeeAllTaskHandler(socket, data, callback) {
                                     status: { $ne: taskStatus_1.default.Declined },
                                 },
                             },
+                            { $sort: { createdAt: -1 } },
                             {
                                 $project: {
                                     name: 1,
@@ -2037,52 +2039,49 @@ function searchEmployeeHandler(socket) {
         });
     });
 }
-function searchCustomerHandler(socket) {
+function searchCustomerHandler(socket, data) {
     return __awaiter(this, void 0, void 0, function () {
-        var customers;
+        var user, customers;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, customer_1.aggregateCustomer([
-                        {
-                            $lookup: {
-                                from: "projects",
-                                let: { customerId: "$_id" },
-                                pipeline: [
-                                    {
-                                        $match: {
-                                            $expr: {
-                                                $and: [
-                                                    { $eq: ["$customerId", "$$customerId"] },
-                                                    {
-                                                        $or: [
-                                                            { $eq: ["$status", taskStatus_2.default.Initiated] },
-                                                            { $eq: ["$status", taskStatus_2.default.Ongoing] },
-                                                        ],
-                                                    },
-                                                ],
+                case 0:
+                    user = socket.user;
+                    return [4 /*yield*/, customer_1.aggregateCustomer(__spreadArrays([
+                            {
+                                $lookup: {
+                                    from: "projects",
+                                    let: { customerId: "$_id" },
+                                    pipeline: [
+                                        {
+                                            $match: {
+                                                $expr: {
+                                                    $and: __spreadArrays([
+                                                        { $eq: ["$customerId", "$$customerId"] }
+                                                    ], ((data === null || data === void 0 ? void 0 : data.primary) ? [{ primaryEmployee: user._id }] : [])),
+                                                },
                                             },
                                         },
-                                    },
-                                    {
-                                        $project: { status: 1 },
-                                    },
-                                ],
-                                as: "projects",
+                                        {
+                                            $project: { status: 1 },
+                                        },
+                                    ],
+                                    as: "projects",
+                                },
                             },
-                        },
-                        {
-                            $addFields: { project: { $size: "$projects" } },
-                        },
-                        {
-                            $project: {
-                                project: 1,
-                                companyName: 1,
-                                profileUri: 1,
-                                _id: 1,
-                                number: 1,
+                            {
+                                $addFields: { project: { $size: "$projects" } },
+                            }
+                        ], ((data === null || data === void 0 ? void 0 : data.primary) ? [{ $match: { project: { $gt: 0 } } }] : []), [
+                            {
+                                $project: {
+                                    project: 1,
+                                    companyName: 1,
+                                    profileUri: 1,
+                                    _id: 1,
+                                    number: 1,
+                                },
                             },
-                        },
-                    ])];
+                        ]))];
                 case 1:
                     customers = _a.sent();
                     socket.emit("employee-search-customer-result", customers);

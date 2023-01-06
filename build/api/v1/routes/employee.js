@@ -21,6 +21,7 @@ EmployeeRouter.post("/forgot/number", employee_1.forgotPasswordHandler);
 EmployeeRouter.post("/forgot/verify/number", employee_1.verifyForgotOtpHandler);
 EmployeeRouter.post("/login/web", validateRequest_1.default(common_1.webLoginSchema), employee_1.loginEmployeeHandler);
 EmployeeRouter.post("/add/meeting", [validateRequest_1.default(admin_2.requestMeetingSchema), auth_1.default(employee_2.default)], employee_1.requestMeetingHandler);
+EmployeeRouter.post("/create/project", [validateRequest_1.default(admin_2.createProjectSchema), auth_1.default(employee_2.default)], employee_1.createProjectForCustomerHandler);
 EmployeeRouter.post("/add/other/meeting", [auth_1.default(employee_2.default)], employee_1.addMeetingHandler);
 EmployeeRouter.post("/create/task", [validateRequest_1.default(admin_2.createTaskSchema), auth_1.default(employee_2.default)], employee_1.createTaskCustomerHandler);
 EmployeeRouter.put("/complete/project", [auth_1.default(employee_2.default)], employee_1.completeProjectHandler);

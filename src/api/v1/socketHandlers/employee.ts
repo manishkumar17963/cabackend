@@ -125,7 +125,7 @@ export function employeeSocketHandler(socket: Socket) {
     });
 
     socket.on("employee-search-customer", async (data) => {
-      await searchCustomerHandler(socket);
+      await searchCustomerHandler(socket, data);
     });
 
     socket.on("assign-employee-meeting", async (data) => {
@@ -258,6 +258,7 @@ async function employeeAllTaskHandler(
           status: { $ne: ProjectStatus.Declined },
         },
       },
+      { $sort: { createdAt: -1 } },
       {
         $project: {
           name: 1,
@@ -279,6 +280,7 @@ async function employeeAllTaskHandler(
           status: { $ne: ProjectStatus.Declined },
         },
       },
+      { $sort: { createdAt: -1 } },
       {
         $project: {
           name: 1,
@@ -1545,7 +1547,12 @@ async function searchEmployeeHandler(socket: Socket) {
   socket.emit("employee-search-employee-result", employees);
 }
 
-async function searchCustomerHandler(socket: Socket) {
+async function searchCustomerHandler(
+  socket: Socket,
+  data?: { primary?: boolean }
+) {
+  //@ts-ignore
+  const user = socket.user as EmployeeDocument;
   const customers = await aggregateCustomer([
     {
       $lookup: {
@@ -1557,12 +1564,8 @@ async function searchCustomerHandler(socket: Socket) {
               $expr: {
                 $and: [
                   { $eq: ["$customerId", "$$customerId"] },
-                  {
-                    $or: [
-                      { $eq: ["$status", TaskStatus.Initiated] },
-                      { $eq: ["$status", TaskStatus.Ongoing] },
-                    ],
-                  },
+
+                  ...(data?.primary ? [{ primaryEmployee: user._id }] : []),
                 ],
               },
             },
@@ -1577,6 +1580,7 @@ async function searchCustomerHandler(socket: Socket) {
     {
       $addFields: { project: { $size: "$projects" } },
     },
+    ...(data?.primary ? [{ $match: { project: { $gt: 0 } } }] : []),
     {
       $project: {
         project: 1,

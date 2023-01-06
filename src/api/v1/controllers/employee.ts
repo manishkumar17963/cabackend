@@ -36,7 +36,11 @@ import MeetingStatus from "../enums/meetingStatus";
 import Customer from "../models/customer";
 import { SendOtp } from "../helpers/sendOtp";
 import AttendanceType from "../enums/attendanceType";
-import { findAndUpdateProject, findProject } from "../services/project.Service";
+import {
+  createProject,
+  findAndUpdateProject,
+  findProject,
+} from "../services/project.Service";
 import { CommentDocument } from "../models/comment";
 import Priority from "../enums/priority";
 import TaskStatus from "../enums/taskStatus";
@@ -49,18 +53,25 @@ import ConversationType from "../enums/conversationType";
 import EmployeeRole from "../enums/role";
 import {
   addConversationHandler,
+  addProjectHandler,
   addSocketProjectHandler,
   deleteConversationHandler,
   deleteSocketProjectHandler,
+  sendConversationHandler,
   updateProjectStatusHandler,
 } from "../socketHandlers/admin";
 import BillingType from "../enums/billingType";
 import PaymentStatus from "../enums/paymentStatus";
 import { findCustomer } from "../services/customer";
 import MeetingType from "../enums/meetingType";
-import { Participant } from "../models/conversation.model";
+import Conversation, {
+  ConversationInput,
+  Participant,
+} from "../models/conversation.model";
 import TaskType from "../enums/taskType";
 import { findSelfTask } from "../services/selfTask.service";
+import { ProjectInput } from "../models/project.model";
+import { findAllAdmin } from "../services/admin";
 
 export async function createEmployeeHandler(req: Request, res: Response) {
   var session: ClientSession = await mongoose.startSession();
@@ -761,6 +772,136 @@ export async function addCommentHandler(req: Request, res: Response) {
     }
     res.send(newComment);
   } catch (error) {
+    checkError(error, res);
+  }
+}
+
+export async function createProjectForCustomerHandler(
+  req: Request,
+  res: Response
+) {
+  const session = await mongoose.startSession();
+
+  session.startTransaction();
+  const user = req.user! as EmployeeDocument;
+  try {
+    const {
+      customerId,
+
+      projectName,
+      billingType,
+      priority,
+      startDate,
+      expectedEndDate,
+      description,
+    }: {
+      customerId: mongoose.Types.ObjectId;
+
+      projectName: string;
+      billingType: BillingType;
+      startDate: string;
+      expectedEndDate: string;
+      priority: Priority;
+      description: string;
+    } = req.body;
+    console.log("reb", req.body);
+    const primaryProject = await findProject({
+      customerId: customerId,
+      primaryEmployee: user._id,
+    });
+    if (!primaryProject) {
+      throw new CustomError(
+        "Bad Request",
+        404,
+        "No any assigned primary project so you cant create project for this customer"
+      );
+    }
+    console.log("primary project", primaryProject);
+    const customer = await findCustomer(
+      { _id: customerId },
+      { username: 1, number: 1, companyName: 1 },
+      { session }
+    );
+    if (!customer) {
+      throw new CustomError("Bad Request", 404, "No such customer found");
+    }
+    let primaryEmployee: EmployeeDocument = user;
+
+    const input: ProjectInput = {
+      customerId: customerId,
+      name: projectName,
+      primaryEmployee: user._id,
+      assignedEmployees: user._id
+        ? [{ role: EmployeeRole.Primary, employeeId: user._id, taskCount: 0 }]
+        : [],
+      priority: priority,
+      billingType: billingType,
+      startDate: moment(startDate).toDate(),
+      expectedEndDate: moment(expectedEndDate).toDate(),
+      description,
+      status: TaskStatus.Initiated,
+      adminApproved: true,
+      clientApproved: false,
+      services: [],
+    };
+
+    const project = await createProject(input);
+    const admins = await findAllAdmin({}, {}, { session });
+
+    const participants: Participant[] = admins.map((value) => ({
+      id: value._id,
+      participantType: SendBy.Admin,
+      participantName: value.username,
+      participantProfile: value.profileUri,
+    }));
+
+    if (primaryEmployee) {
+      participants.push({
+        id: primaryEmployee._id,
+        participantType: SendBy.Employee,
+        participantName: primaryEmployee.username,
+        participantProfile: primaryEmployee.profileUri,
+      });
+    }
+
+    const conversations: ConversationInput[] = [
+      {
+        participants: [
+          ...participants,
+          {
+            id: customer._id?.toString(),
+            participantType: SendBy.Customer,
+            participantName: customer.companyName,
+            participantProfile: customer.profileUri,
+          },
+        ],
+        _id: new mongoose.Types.ObjectId(),
+        projectId: project._id,
+        projectName: project.name,
+        conversationType: ConversationType.Project,
+      },
+      {
+        participants,
+        projectId: project._id,
+        projectName: project.name,
+        _id: new mongoose.Types.ObjectId(),
+        conversationType: ConversationType.Group,
+      },
+    ];
+    const conversation = await Conversation.insertMany(conversations, {
+      session,
+    });
+    await session.commitTransaction();
+    addProjectHandler(
+      project,
+      primaryEmployee == null ? undefined : primaryEmployee
+    );
+    sendConversationHandler(conversations);
+    res.send({
+      message: `one project created`,
+    });
+  } catch (error) {
+    await session.abortTransaction();
     checkError(error, res);
   }
 }
