@@ -2045,6 +2045,7 @@ function searchCustomerHandler(socket, data) {
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
+                    console.log("data", data);
                     user = socket.user;
                     return [4 /*yield*/, customer_1.aggregateCustomer(__spreadArrays([
                             {
@@ -2057,7 +2058,8 @@ function searchCustomerHandler(socket, data) {
                                                 $expr: {
                                                     $and: __spreadArrays([
                                                         { $eq: ["$customerId", "$$customerId"] }
-                                                    ], ((data === null || data === void 0 ? void 0 : data.primary) ? [{ primaryEmployee: user._id }] : [])),
+                                                    ], ((data === null || data === void 0 ? void 0 : data.primary) ? [{ $eq: ["$primaryEmployee", user._id] }]
+                                                        : [])),
                                                 },
                                             },
                                         },

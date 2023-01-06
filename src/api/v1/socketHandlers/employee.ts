@@ -1551,6 +1551,7 @@ async function searchCustomerHandler(
   socket: Socket,
   data?: { primary?: boolean }
 ) {
+  console.log("data", data);
   //@ts-ignore
   const user = socket.user as EmployeeDocument;
   const customers = await aggregateCustomer([
@@ -1565,7 +1566,9 @@ async function searchCustomerHandler(
                 $and: [
                   { $eq: ["$customerId", "$$customerId"] },
 
-                  ...(data?.primary ? [{ primaryEmployee: user._id }] : []),
+                  ...(data?.primary
+                    ? [{ $eq: ["$primaryEmployee", user._id] }]
+                    : []),
                 ],
               },
             },

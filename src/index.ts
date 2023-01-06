@@ -57,9 +57,9 @@ const start = async () => {
     const server = http.createServer(app);
     registerSocketServer(server);
     server.listen(port, "0.0.0.0");
-    const httpServer = https.createServer(cred, app);
-    httpServer.listen(8443);
-    registerSocketServer(httpServer);
+    // const httpServer = https.createServer(cred, app);
+    // httpServer.listen(8443);
+    // registerSocketServer(httpServer);
   } catch (err) {
     console.log(err);
   }
