@@ -496,7 +496,7 @@ export async function updateLinkHandler(
 ) {
   try {
     //@ts-ignore
-    const user = socket.user as AdminDocument;
+    const user = socket.user as EmployeeDocument;
     const link = await findAndUpdateLink(
       {
         ownerId: user._id,

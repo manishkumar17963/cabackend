@@ -244,7 +244,7 @@ export function adminSocketHandler(socket: Socket) {
     });
 
     socket.on("admin-update-link", async (data, callback) => {
-      await adminAddParticipants(socket, data, callback);
+      await updateLinkHandler(socket, data, callback);
     });
 
     socket.on("admin-date-attendance", async (data, callback) => {
@@ -294,8 +294,8 @@ export async function adminAddLink(
     });
     // console.log("timeLogs", timeLogs);
     callback({ status: 200, data: link });
-  } catch (err) {
-    console.log(err);
+  } catch (err: any) {
+    callback({ status: 500, message: err.message });
   }
 }
 
@@ -332,7 +332,7 @@ export async function adminDeleteLink(
     //@ts-ignore
     const user = socket.user as AdminDocument;
     const link = await findAndDeleteLink({
-      ownerId: user._id,
+      $or: [{ type: LinkOwned.All }, { ownerId: user._id }],
       _id: data.linkId,
     });
     if (!link) {
@@ -348,9 +348,14 @@ export async function adminDeleteLink(
   }
 }
 
-export async function adminAddParticipants(
+export async function updateLinkHandler(
   socket: Socket,
-  data: { linkId: mongoose.Types.ObjectId; participants: string[] },
+  data: {
+    linkId: mongoose.Types.ObjectId;
+    url: string;
+    sharedTo: string[];
+    name: string;
+  },
   callback: (data: any) => void
 ) {
   try {
@@ -360,10 +365,9 @@ export async function adminAddParticipants(
       {
         ownerId: user._id,
         _id: data.linkId,
-        type: LinkOwned.Personal,
       },
-      { $set: { sharedTo: data.participants } },
-      {}
+      { $set: { name: data.name, url: data.url, sharedTo: data.sharedTo } },
+      { new: true }
     );
     if (!link) {
       throw new CustomError("Bad request", 404, "No such Link found");
@@ -371,7 +375,7 @@ export async function adminAddParticipants(
 
     callback({
       status: 200,
-      data: "Participants successfully updated",
+      data: link,
     });
   } catch (err: any) {
     callback({ status: 400, message: err?.message });

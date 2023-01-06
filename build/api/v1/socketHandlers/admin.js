@@ -57,7 +57,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.addInvoiceData = exports.addQuotationData = exports.addInvoiceHandler = exports.addTemplateHandler = exports.addBranchHandler = exports.sendConversationHandler = exports.addProjectHandler = exports.updateSocketProjectPrimaryEmployee = exports.addSocketProjectHandler = exports.deleteSocketProjectHandler = exports.addConversationHandler = exports.updateConversationHandler = exports.deleteConversationHandler = exports.initialDataHandler = exports.updateProjectStatusHandler = exports.imageDetailHandler = exports.storageProjectImageHandler = exports.storageImportantImageHandler = exports.removeImportantHandler = exports.addImportantHandler = exports.storageProjectHandler = exports.employeeStorageHandler = exports.employeeSrisudhaHandler = exports.assignEmployeeMeeting = exports.startAttendanceHandler = exports.sickLeaveHandler = exports.denyAttendanceHandler = exports.adminBranchHandler = exports.approveAttendanceHandler = exports.employeeTasksHandler = exports.addSickHandler = exports.denyLeaveHandler = exports.approveLeaveHandler = exports.employeeMonthlyReportHandler = exports.verifyKycHandler = exports.adminProjectReport = exports.completeMeetingHandler = exports.cancelMeetingHandler = exports.employeeDailyReport = exports.adminAddParticipants = exports.adminDeleteLink = exports.adminToggleLink = exports.adminAddLink = exports.adminSocketHandler = void 0;
+exports.addInvoiceData = exports.addQuotationData = exports.addInvoiceHandler = exports.addTemplateHandler = exports.addBranchHandler = exports.sendConversationHandler = exports.addProjectHandler = exports.updateSocketProjectPrimaryEmployee = exports.addSocketProjectHandler = exports.deleteSocketProjectHandler = exports.addConversationHandler = exports.updateConversationHandler = exports.deleteConversationHandler = exports.initialDataHandler = exports.updateProjectStatusHandler = exports.imageDetailHandler = exports.storageProjectImageHandler = exports.storageImportantImageHandler = exports.removeImportantHandler = exports.addImportantHandler = exports.storageProjectHandler = exports.employeeStorageHandler = exports.employeeSrisudhaHandler = exports.assignEmployeeMeeting = exports.startAttendanceHandler = exports.sickLeaveHandler = exports.denyAttendanceHandler = exports.adminBranchHandler = exports.approveAttendanceHandler = exports.employeeTasksHandler = exports.addSickHandler = exports.denyLeaveHandler = exports.approveLeaveHandler = exports.employeeMonthlyReportHandler = exports.verifyKycHandler = exports.adminProjectReport = exports.completeMeetingHandler = exports.cancelMeetingHandler = exports.employeeDailyReport = exports.updateLinkHandler = exports.adminDeleteLink = exports.adminToggleLink = exports.adminAddLink = exports.adminSocketHandler = void 0;
 var moment_1 = __importDefault(require("moment"));
 var mongoose_1 = __importDefault(require("mongoose"));
 var serverStore_1 = require("../../../socket/serverStore");
@@ -493,7 +493,7 @@ function adminSocketHandler(socket) {
         socket.on("admin-update-link", function (data, callback) { return __awaiter(_this, void 0, void 0, function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
-                    case 0: return [4 /*yield*/, adminAddParticipants(socket, data, callback)];
+                    case 0: return [4 /*yield*/, updateLinkHandler(socket, data, callback)];
                     case 1:
                         _a.sent();
                         return [2 /*return*/];
@@ -599,7 +599,7 @@ function adminAddLink(socket, data, callback) {
                     return [3 /*break*/, 3];
                 case 2:
                     err_1 = _a.sent();
-                    console.log(err_1);
+                    callback({ status: 500, message: err_1.message });
                     return [3 /*break*/, 3];
                 case 3: return [2 /*return*/];
             }
@@ -650,7 +650,7 @@ function adminDeleteLink(socket, data, callback) {
                     _a.trys.push([0, 2, , 3]);
                     user = socket.user;
                     return [4 /*yield*/, link_service_1.findAndDeleteLink({
-                            ownerId: user._id,
+                            $or: [{ type: link_model_1.LinkOwned.All }, { ownerId: user._id }],
                             _id: data.linkId,
                         })];
                 case 1:
@@ -673,7 +673,7 @@ function adminDeleteLink(socket, data, callback) {
     });
 }
 exports.adminDeleteLink = adminDeleteLink;
-function adminAddParticipants(socket, data, callback) {
+function updateLinkHandler(socket, data, callback) {
     return __awaiter(this, void 0, void 0, function () {
         var user, link, err_4;
         return __generator(this, function (_a) {
@@ -684,8 +684,7 @@ function adminAddParticipants(socket, data, callback) {
                     return [4 /*yield*/, link_service_1.findAndUpdateLink({
                             ownerId: user._id,
                             _id: data.linkId,
-                            type: link_model_1.LinkOwned.Personal,
-                        }, { $set: { sharedTo: data.participants } }, {})];
+                        }, { $set: { name: data.name, url: data.url, sharedTo: data.sharedTo } }, { new: true })];
                 case 1:
                     link = _a.sent();
                     if (!link) {
@@ -693,7 +692,7 @@ function adminAddParticipants(socket, data, callback) {
                     }
                     callback({
                         status: 200,
-                        data: "Participants successfully updated",
+                        data: link,
                     });
                     return [3 /*break*/, 3];
                 case 2:
@@ -705,7 +704,7 @@ function adminAddParticipants(socket, data, callback) {
         });
     });
 }
-exports.adminAddParticipants = adminAddParticipants;
+exports.updateLinkHandler = updateLinkHandler;
 function employeeDailyReport(socket, data, callback) {
     return __awaiter(this, void 0, void 0, function () {
         var date, timeLogs, err_5;
