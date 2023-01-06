@@ -615,7 +615,10 @@ function adminToggleLink(socket, data, callback) {
                 case 0:
                     _a.trys.push([0, 3, , 4]);
                     user = socket.user;
-                    return [4 /*yield*/, link_service_1.findLink({ ownerId: user._id, _id: data.linkId })];
+                    return [4 /*yield*/, link_service_1.findLink({
+                            $or: [{ type: link_model_1.LinkOwned.All }, { ownerId: user._id }],
+                            _id: data.linkId,
+                        })];
                 case 1:
                     link = _a.sent();
                     if (!link) {
@@ -682,7 +685,7 @@ function updateLinkHandler(socket, data, callback) {
                     _a.trys.push([0, 2, , 3]);
                     user = socket.user;
                     return [4 /*yield*/, link_service_1.findAndUpdateLink({
-                            ownerId: user._id,
+                            $or: [{ type: link_model_1.LinkOwned.All }, { ownerId: user._id }],
                             _id: data.linkId,
                         }, { $set: { name: data.name, url: data.url, sharedTo: data.sharedTo } }, { new: true })];
                 case 1:

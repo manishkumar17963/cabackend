@@ -307,7 +307,10 @@ export async function adminToggleLink(
   try {
     //@ts-ignore
     const user = socket.user as AdminDocument;
-    const link = await findLink({ ownerId: user._id, _id: data.linkId });
+    const link = await findLink({
+      $or: [{ type: LinkOwned.All }, { ownerId: user._id }],
+      _id: data.linkId,
+    });
     if (!link) {
       throw new CustomError("Bad request", 404, "No such Link found");
     }
@@ -363,7 +366,7 @@ export async function updateLinkHandler(
     const user = socket.user as AdminDocument;
     const link = await findAndUpdateLink(
       {
-        ownerId: user._id,
+        $or: [{ type: LinkOwned.All }, { ownerId: user._id }],
         _id: data.linkId,
       },
       { $set: { name: data.name, url: data.url, sharedTo: data.sharedTo } },
