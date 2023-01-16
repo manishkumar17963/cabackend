@@ -345,31 +345,15 @@ export async function verifyEmployeeHandler(req: Request, res: Response) {
     const token = await employee.generateAuthToken(req.body.webToken);
     const setting = await findSetting({});
     const date = moment().startOf("month");
-    const types: { [key: string]: SickLeaveCategory } = {};
-    console.log(
-      "setting",
-      //@ts-ignore
-      setting?.types?.entries()?.next()?.value ?? {}
-    );
-    //@ts-ignore
-    const iterator = setting?.types?.entries() ?? new Map().entries();
-    let value = iterator.next().value;
-    while (value) {
-      types[value[0]] = { ...(value[1]?.toJSON() ?? value[1]) };
-      value = iterator.next().value;
-    }
 
-    employee.sickLeave = setting ? [{ date: date.toDate(), types: types }] : [];
+    employee.sickLeave = setting
+      ? //@ts-ignore
+        [{ date: date.toDate(), types: Object.fromEntries(setting.types) }]
+      : [];
     await employee.save();
     await session.commitTransaction();
     res.status(200).send({
-      employee: {
-        ...employee.toJSON(),
-        sickLeave: employee.sickLeave.map((value) => {
-          //@ts-ignore
-          return { ...value.toJSON(), types: Object.fromEntries(value.types) };
-        }),
-      },
+      employee,
       token,
     });
   } catch (err) {

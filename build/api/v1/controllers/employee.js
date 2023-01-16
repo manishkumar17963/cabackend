@@ -386,18 +386,17 @@ function updateTaskStatusHandler(req, res) {
 }
 exports.updateTaskStatusHandler = updateTaskStatusHandler;
 function verifyEmployeeHandler(req, res) {
-    var _a, _b, _c, _d, _e, _f, _g, _h;
     return __awaiter(this, void 0, void 0, function () {
-        var session, employee, token, setting, date, types, iterator, value, err_2;
-        return __generator(this, function (_j) {
-            switch (_j.label) {
+        var session, employee, token, setting, date, err_2;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
                 case 0: return [4 /*yield*/, mongoose_1.default.startSession()];
                 case 1:
-                    session = _j.sent();
+                    session = _a.sent();
                     session.startTransaction();
-                    _j.label = 2;
+                    _a.label = 2;
                 case 2:
-                    _j.trys.push([2, 8, , 10]);
+                    _a.trys.push([2, 8, , 10]);
                     console.log(req.body);
                     return [4 /*yield*/, employee_1.findAndUpdateEmployee({
                             number: req.body.number,
@@ -405,52 +404,38 @@ function verifyEmployeeHandler(req, res) {
                             code: parseInt(req.body.code),
                         }, { $set: { codeValid: false } }, { session: session })];
                 case 3:
-                    employee = _j.sent();
+                    employee = _a.sent();
                     console.log(employee);
                     if (!employee) {
                         throw new customError_1.default("Bad credentials", 400, "please provide valid otp");
                     }
                     return [4 /*yield*/, employee.generateAuthToken(req.body.webToken)];
                 case 4:
-                    token = _j.sent();
+                    token = _a.sent();
                     return [4 /*yield*/, setting_service_1.findSetting({})];
                 case 5:
-                    setting = _j.sent();
+                    setting = _a.sent();
                     date = moment_1.default().startOf("month");
-                    types = {};
-                    console.log("setting", (_d = (_c = (_b = (_a = 
-                    //@ts-ignore
-                    setting === null || 
-                    //@ts-ignore
-                    setting === void 0 ? void 0 : 
-                    //@ts-ignore
-                    setting.types) === null || _a === void 0 ? void 0 : _a.entries()) === null || _b === void 0 ? void 0 : _b.next()) === null || _c === void 0 ? void 0 : _c.value) !== null && _d !== void 0 ? _d : {});
-                    iterator = (_f = (_e = setting === null || setting === void 0 ? void 0 : setting.types) === null || _e === void 0 ? void 0 : _e.entries()) !== null && _f !== void 0 ? _f : new Map().entries();
-                    value = iterator.next().value;
-                    while (value) {
-                        types[value[0]] = __assign({}, ((_h = (_g = value[1]) === null || _g === void 0 ? void 0 : _g.toJSON()) !== null && _h !== void 0 ? _h : value[1]));
-                        value = iterator.next().value;
-                    }
-                    employee.sickLeave = setting ? [{ date: date.toDate(), types: types }] : [];
+                    employee.sickLeave = setting
+                        ? //@ts-ignore
+                            [{ date: date.toDate(), types: Object.fromEntries(setting.types) }]
+                        : [];
                     return [4 /*yield*/, employee.save()];
                 case 6:
-                    _j.sent();
+                    _a.sent();
                     return [4 /*yield*/, session.commitTransaction()];
                 case 7:
-                    _j.sent();
+                    _a.sent();
                     res.status(200).send({
-                        employee: __assign(__assign({}, employee.toJSON()), { sickLeave: employee.sickLeave.map(function (value) {
-                                //@ts-ignore
-                                return __assign(__assign({}, value.toJSON()), { types: Object.fromEntries(value.types) });
-                            }) }),
+                        employee: employee,
                         token: token,
                     });
                     return [3 /*break*/, 10];
                 case 8:
-                    err_2 = _j.sent();
+                    err_2 = _a.sent();
                     return [4 /*yield*/, session.abortTransaction()];
                 case 9:
-                    _j.sent();
+                    _a.sent();
                     checkErrors_1.default(err_2, res);
                     return [3 /*break*/, 10];
                 case 10: return [2 /*return*/];
